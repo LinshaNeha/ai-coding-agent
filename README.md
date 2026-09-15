@@ -389,6 +389,33 @@ Tested with curl against the running server (`uvicorn main:app --reload`):
 ## What's next
 
 **Phase 7 — Reliability & Auth:** structured error handling across endpoints, Pydantic request validation, basic API key auth, rate limiting.
+## Phase 7 — Reliability & Auth
+
+### 7.1 Structured error handling ✅
+- Global exception handler (`@app.exception_handler(Exception)`) catches anything unhandled and returns a clean, generic 500 response instead of leaking a raw Python traceback to the client
+- Proper logging via Python's `logging` module (`logger.exception(...)`) instead of silent failures or bare `print()`
+- `/chat`'s own error path now logs the failed request to `request_logs` and raises a clean `HTTPException`, rather than re-raising the raw exception
+
+### 7.2 Request validation (Pydantic) ✅
+- `ChatRequest.question` — must be 1–2000 characters, and a custom validator rejects whitespace-only input
+- `ChatRequest.provider` — must be one of `{"gemini", "claude", "openai"}`, rejected otherwise
+- Verified: blank question → `422` with clear error message; invalid provider (`"chatgpt"`) → `422` with clear error message
+
+### 7.3 Basic API key auth ✅
+- `app/core/auth.py` — `verify_api_key()` checks an `X-API-Key` header against `API_KEY` in `.env`
+- Applied to `/chat` via `dependencies=[Depends(verify_api_key)]`
+- Verified: missing key → `401`; wrong key → `401`; correct key → request proceeds normally
+
+### 7.4 Rate limiting ✅
+- Added `slowapi` (FastAPI-native rate limiting library)
+- `/chat` limited to **10 requests/minute per IP address**
+- Verified with 11 back-to-back requests: first 10 returned `200`, 11th correctly returned `429 Too Many Requests`
+
+---
+
+## What's next
+
+**Phase 8 — Frontend:** React chat UI (calls `/chat`), merge dashboard UI into the same frontend, diff viewer for agent edits.
 
 
 \*\*Phase 4 — Caching:\*\* wire the already-scaffolded `cache\_entries` table into `/chat`, then add semantic (near-duplicate) cache matching.
