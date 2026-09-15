@@ -333,6 +333,29 @@ Tested with curl against the running server (`uvicorn main:app --reload`):
 ## What's next
 
 **Phase 5 — Model Routing:** task-difficulty classifier to route between model tiers, log which tier was picked per request, surface on dashboard.
+## Phase 5 — Model Routing
+
+### 5.1 Task-difficulty classifier ✅
+- `app/services/classifier.py`
+- Heuristic-based, no ML model needed: checks for complexity-signaling keywords ("explain", "why", "compare", "architecture", etc.) and simple-signaling keywords ("what is", "list", "define"), combined with word count thresholds
+- `classify_difficulty(question)` → `"simple"` or `"complex"`
+- Tested against real questions: factual "what/list" questions correctly classified simple; "explain"/"why" questions correctly classified complex
+
+### 5.2 Routes between Gemini tiers ✅
+- `TIER_MODELS` mapping: `"simple"` → `gemini-3.1-flash-lite` ($0.25/M input, $1.50/M output), `"complex"` → `gemini-3.6-flash` ($0.75/M input, $3.75/M output)
+- `get_llm_client()` extended to accept an explicit `model` override, so routing can pick the exact model per request without changing the client abstraction
+- Claude/OpenAI tiers remain stubbed (per Phase 1), ready to slot into this same routing logic once implemented
+
+### 5.3 Tier logged per request ✅
+- `request_logs.model_used` now stores the actual model name used (e.g. `gemini-3.1-flash-lite`), not just the provider
+- `/chat` response includes `"tier"` and `"model_used"` fields
+- Verified in `/stats/by-question`: simple-tier requests show visibly lower cost per request than complex-tier ones, confirming routing is genuinely saving money on easy questions
+
+---
+
+## What's next
+
+**Phase 6 — Agent Loop + Verification:** file read/write tools, test executor (pytest), diagnose → patch → re-run → verify fix-loop, auto-backup before edits.
 
 
 \*\*Phase 4 — Caching:\*\* wire the already-scaffolded `cache\_entries` table into `/chat`, then add semantic (near-duplicate) cache matching.

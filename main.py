@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.stats import router as stats_router
 from app.services.compressor import compress_code
 from app.services.cache import get_cached_response, save_to_cache
+from app.services.classifier import get_model_for_question
 
 app = FastAPI()
 app.include_router(stats_router)
@@ -62,6 +63,8 @@ def chat(request: ChatRequest):
                 "cached": True,
             }
 
+        tier, model_name = get_model_for_question(request.question)
+
         chunks = retriever.retrieve(request.question, top_k=5)
 
         context = "\n\n".join(
@@ -78,17 +81,17 @@ QUESTION:
 {request.question}
 """
 
-        llm = get_llm_client(request.provider)
+        llm = get_llm_client(request.provider, model=model_name)
         result = llm.generate(prompt)
 
         latency_ms = int((time.time() - start_time) * 1000)
 
-        cost = calculate_cost("gemini-3.6-flash", result["input_tokens"], result["output_tokens"])
+        cost = calculate_cost(model_name, result["input_tokens"], result["output_tokens"])
 
         log_entry = RequestLog(
             endpoint="/chat",
             question=request.question,
-            model_used=request.provider,
+            model_used=model_name,
             input_tokens=result["input_tokens"],
             output_tokens=result["output_tokens"],
             cost_usd=cost,
@@ -107,6 +110,8 @@ QUESTION:
                 for c in chunks
             ],
             "latency_ms": latency_ms,
+            "tier": tier,
+            "model_used": model_name,
         }
 
     except Exception as e:

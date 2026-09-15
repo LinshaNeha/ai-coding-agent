@@ -1,9 +1,8 @@
 # Prices in USD per 1 million tokens.
-# Source: Google Cloud pricing page, Sep 2026.
-# Gemini 3.6/3.7/3.8 Flash promotional pricing runs through Dec 31, 2026,
-# then rises to $1.50 input / $7.50 output.
+# Source: Google AI Studio / Google Cloud pricing pages, Sep 2026.
 PRICING = {
-    "gemini-3.6-flash": {"input": 0.75, "output": 3.75},
+    "gemini-3.6-flash": {"input": 0.75, "output": 3.75},       # promotional rate through Dec 31, 2026
+    "gemini-3.1-flash-lite": {"input": 0.25, "output": 1.50},
 }
 
 DEFAULT_PRICING = {"input": 0.75, "output": 3.75}

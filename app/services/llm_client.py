@@ -46,9 +46,9 @@ class OpenAIClient(LLMClient):
         raise NotImplementedError("OpenAI client not yet implemented")
 
 
-def get_llm_client(provider: str = "gemini") -> LLMClient:
+def get_llm_client(provider: str = "gemini", model: str = None) -> LLMClient:
     if provider == "gemini":
-        return GeminiClient()
+        return GeminiClient(model=model) if model else GeminiClient()
     elif provider == "claude":
         return ClaudeClient()
     elif provider == "openai":
