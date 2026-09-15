@@ -356,6 +356,39 @@ Tested with curl against the running server (`uvicorn main:app --reload`):
 ## What's next
 
 **Phase 6 — Agent Loop + Verification:** file read/write tools, test executor (pytest), diagnose → patch → re-run → verify fix-loop, auto-backup before edits.
+## Phase 6 — Agent Loop + Verification
+
+### 6.1 File read/write tools ✅
+- `app/services/file_tools.py`
+- `read_file()`, `write_file()` — standard file operations
+- Tested standalone before wiring into anything automated
+
+### 6.2 Test executor ✅
+- `app/services/test_executor.py`
+- Runs pytest via `subprocess`, using `sys.executable` (not a hardcoded `"python"`) so it always uses the correct venv interpreter
+- Returns structured results: `passed` (bool), full `output`, a `summary` line, and the raw return code
+- Verified against a real `tests/` folder with genuine pytest tests (`tests/test_pricing.py`)
+
+### 6.3 Fix-loop: diagnose → patch → apply → re-run → verify ✅
+- `app/services/fix_loop.py`
+- `fix_and_verify(file_path, test_path)`:
+  1. Runs tests — if already passing, stops immediately
+  2. On failure, reads the current file and builds a prompt containing both the buggy code and the actual test failure output
+  3. Asks the LLM to return the complete corrected file (not a diff, for reliability in this first version)
+  4. Extracts the code from the response and writes it (auto-backed-up first, via 6.4)
+  5. Repeats up to 3 attempts if the first fix doesn't fully resolve the failure
+- **Verified end-to-end on a real bug:** a deliberately broken `add_numbers()` function (`return a - b` instead of `a + b`) was correctly diagnosed and fixed by the LLM in a single attempt, confirmed by the previously-failing test passing afterward
+
+### 6.4 Auto-backup before any edit ✅
+- `file_tools.write_file()` automatically copies the existing file into a timestamped `backups/` folder before overwriting it (skipped only for genuinely new files, since there's nothing to back up yet)
+- `backups/` added to `.gitignore` — these are local safety nets, not meant to be committed
+- Verified: editing `buggy_math.py` produced a real `.bak` file in `backups/` before the fix was applied
+
+---
+
+## What's next
+
+**Phase 7 — Reliability & Auth:** structured error handling across endpoints, Pydantic request validation, basic API key auth, rate limiting.
 
 
 \*\*Phase 4 — Caching:\*\* wire the already-scaffolded `cache\_entries` table into `/chat`, then add semantic (near-duplicate) cache matching.
