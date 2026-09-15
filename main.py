@@ -9,7 +9,8 @@ from app.services.llm_client import get_llm_client
 from app.services.pricing import calculate_cost
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.stats import router as stats_router
-
+from app.services.compressor import compress_code
+from app.services.cache import get_cached_response, save_to_cache
 
 app = FastAPI()
 app.include_router(stats_router)
@@ -38,11 +39,33 @@ def chat(request: ChatRequest):
     db = SessionLocal()
 
     try:
-        # 1. Retrieve relevant code chunks
+        cached_answer = get_cached_response(db, request.question)
+        if cached_answer is not None:
+            latency_ms = int((time.time() - start_time) * 1000)
+            log_entry = RequestLog(
+                endpoint="/chat",
+                question=request.question,
+                model_used=request.provider,
+                input_tokens=0,
+                output_tokens=0,
+                cost_usd=0.0,
+                latency_ms=latency_ms,
+                cache_hit=True,
+                status="success",
+            )
+            db.add(log_entry)
+            db.commit()
+            return {
+                "answer": cached_answer,
+                "sources": [],
+                "latency_ms": latency_ms,
+                "cached": True,
+            }
+
         chunks = retriever.retrieve(request.question, top_k=5)
 
         context = "\n\n".join(
-            f"# {c['chunk_type']} {c['chunk_name']} ({c['file_path']}:{c['start_line']}-{c['end_line']})\n{c['content']}"
+            f"# {c['chunk_type']} {c['chunk_name']} ({c['file_path']}:{c['start_line']}-{c['end_line']})\n{compress_code(c['content'])}"
             for c in chunks
         )
 
@@ -55,13 +78,11 @@ QUESTION:
 {request.question}
 """
 
-        # 2. Call the LLM
         llm = get_llm_client(request.provider)
         result = llm.generate(prompt)
 
         latency_ms = int((time.time() - start_time) * 1000)
 
-                # 3. Calculate real cost and log the request
         cost = calculate_cost("gemini-3.6-flash", result["input_tokens"], result["output_tokens"])
 
         log_entry = RequestLog(
@@ -75,6 +96,7 @@ QUESTION:
             cache_hit=False,
             status="success",
         )
+        save_to_cache(db, request.question, result["text"])
         db.add(log_entry)
         db.commit()
 

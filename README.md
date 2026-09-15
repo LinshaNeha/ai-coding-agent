@@ -281,7 +281,58 @@ Tested with curl against the running server (`uvicorn main:app --reload`):
 **Phase 3 — Compression:** strip whitespace/redundancy before sending to the LLM, measure impact against this session's baseline numbers.
 
 \*\*Phase 3 — Compression:\*\* strip whitespace/redundancy before sending to the LLM, measure impact against this session's baseline numbers.
+## Phase 3 — Compression
 
+### 3.1 Compression service ✅
+- `app/services/compressor.py`
+- `compress_code(text)` — a deliberately conservative, safe transformation:
+  - Strips trailing whitespace from every line
+  - Collapses multiple consecutive blank lines into one
+  - Removes full-line comments (lines that are *only* a comment)
+  - Does **not** touch inline comments or string contents, to avoid any risk of breaking code semantics
+- Verified standalone: ~5.9% character reduction on `indexer.py`
+
+### 3.2 Wired into `/chat` ✅
+- Applied to each retrieved code chunk's content when building the LLM prompt, in `main.py`
+- Runs on every request (will naturally apply "only on cache miss" once combined with Phase 4's cache-first flow, since cached responses skip this step entirely)
+
+### 3.3 Measured impact vs Phase 1 baseline ✅
+- Re-ran an identical question from Phase 1 testing ("How does the code get split into chunks?")
+- Before compression: **1586 input tokens**
+- After compression: **1528 input tokens**
+- ~3.7% reduction on this question, with no loss in answer quality or accuracy — a modest, safe win rather than an aggressive one
+
+---
+
+## Phase 4 — Caching
+
+### 4.1 Exact-match cache table ✅
+- `cache_entries` table (already scaffolded in Phase 1) is now actively used
+- `app/services/cache.py` — `hash_query()` creates a stable SHA-256 hash of a normalized (trimmed, lowercased) question, used as the lookup key
+
+### 4.2 Cache wired into `/chat` ✅
+- Cache check happens **first**, before retrieval, compression, or any LLM call — a true cache hit skips the entire expensive pipeline
+- On a hit: returns the cached answer directly, logs the request with `cache_hit: true`, `input_tokens: 0`, `output_tokens: 0`, `cost_usd: 0.0`
+- On a miss: runs the full pipeline as normal, then `save_to_cache()` stores the new question/answer pair for next time
+- **Verified performance:** repeat question went from **~6591ms → ~54ms** (exact same, accurate answer both times)
+
+### 4.3 Semantic cache upgrade ✅
+- `cache_entries` extended with an `embedding` column (`Vector(3072)`, same dimension as code chunks)
+- Two-stage lookup on every `/chat` call:
+  1. **Exact hash match** — instant, zero embedding cost, for identical questions
+  2. **Semantic match** — if no exact hit, embeds the incoming question and runs a cosine-similarity search over all previously cached questions (same pgvector pattern as `retriever.py` uses for code search). If the closest match scores **≥ 0.82**, that cached answer is reused instead of calling the LLM
+- `save_to_cache()` now also stores the question's embedding alongside every new answer, so the semantic index grows automatically as more questions come in
+- **Threshold chosen from real measured data**, not guessed:
+  - Same question, lightly reworded → 0.85 similarity → correctly hit
+  - Same question, heavily reworded → 0.94 similarity → correctly hit
+  - Genuinely different question (a "why" vs a "how") → 0.79 similarity → correctly missed
+  - `0.82` sits cleanly in the gap between "different question" and "same question," based on this data
+
+---
+
+## What's next
+
+**Phase 5 — Model Routing:** task-difficulty classifier to route between model tiers, log which tier was picked per request, surface on dashboard.
 
 
 \*\*Phase 4 — Caching:\*\* wire the already-scaffolded `cache\_entries` table into `/chat`, then add semantic (near-duplicate) cache matching.
