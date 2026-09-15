@@ -6,8 +6,19 @@ from app.core.database import SessionLocal
 from app.models.request_log import RequestLog
 from app.services.retriever import Retriever
 from app.services.llm_client import get_llm_client
+from app.services.pricing import calculate_cost
+from fastapi.middleware.cors import CORSMiddleware
+from app.api.stats import router as stats_router
+
 
 app = FastAPI()
+app.include_router(stats_router)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 retriever = Retriever()
 
 
@@ -50,14 +61,16 @@ QUESTION:
 
         latency_ms = int((time.time() - start_time) * 1000)
 
-        # 3. Log the request
+                # 3. Calculate real cost and log the request
+        cost = calculate_cost("gemini-3.6-flash", result["input_tokens"], result["output_tokens"])
+
         log_entry = RequestLog(
             endpoint="/chat",
             question=request.question,
             model_used=request.provider,
             input_tokens=result["input_tokens"],
             output_tokens=result["output_tokens"],
-            cost_usd=0.0,  # TODO: wire up real pricing in Phase 2
+            cost_usd=cost,
             latency_ms=latency_ms,
             cache_hit=False,
             status="success",

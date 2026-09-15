@@ -250,7 +250,35 @@ Tested with curl against the running server (`uvicorn main:app --reload`):
 
 \*\*Phase 2 — Cost/Token Dashboard:\*\* aggregate stats endpoint, basic React dashboard, per-question cost breakdown.
 
+## Phase 2 — Cost/Token Dashboard
 
+### 2.1 `GET /stats` endpoint ✅
+- `app/api/stats.py`
+- `GET /stats` — aggregate totals: request count, total cost, total input/output tokens, average latency, cache hit rate, error count
+- `GET /stats/by-question` — per-request breakdown (last 20 by default): question, model, tokens, cost, latency, status
+- Wired into `main.py` via `app.include_router(stats_router)`
+
+### 2.2 Basic React dashboard page ✅
+- Scaffolded with Vite (`npm create vite@latest frontend -- --template react`), running on `http://localhost:5173`
+- `frontend/src/App.jsx` — fetches `/stats` and `/stats/by-question` on load, renders stat cards + a request table
+- Failed requests are visually highlighted (red row) in the table
+- CORS enabled on the FastAPI backend (`CORSMiddleware`, allowing `localhost:5173`) so the frontend can call the API across ports
+
+### 2.3 Per-question cost breakdown view ✅
+- Delivered by the same `/stats/by-question` endpoint + the "Recent Requests" table in the dashboard
+- Shows exact cost, tokens, latency, and status per individual question
+- Note: a true per-*file* breakdown (cost attributed to which code chunks get pulled into requests) is not yet built — would need to track which source chunks were used per request more explicitly
+
+### Real cost tracking added
+- `app/services/pricing.py` — calculates real `cost_usd` per request based on Gemini's actual pricing
+- Gemini 3.6 Flash: $0.75 / million input tokens, $3.75 / million output tokens (promotional rate through Dec 31, 2026, per Google Cloud's pricing page)
+- Wired into `/chat` in `main.py` so every successful request now logs a real dollar cost, not a placeholder `0.0`
+
+---
+
+## What's next
+
+**Phase 3 — Compression:** strip whitespace/redundancy before sending to the LLM, measure impact against this session's baseline numbers.
 
 \*\*Phase 3 — Compression:\*\* strip whitespace/redundancy before sending to the LLM, measure impact against this session's baseline numbers.
 
