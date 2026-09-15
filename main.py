@@ -1,19 +1,19 @@
-import os
-from dotenv import load_dotenv
-from google import genai
+import time
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-# Load the API key from .env
-load_dotenv()
-api_key = os.getenv("GEMINI_API_KEY")
-client = genai.Client(api_key=api_key)
+from app.core.database import SessionLocal
+from app.models.request_log import RequestLog
+from app.services.retriever import Retriever
+from app.services.llm_client import get_llm_client
 
 app = FastAPI()
+retriever = Retriever()
 
 
 class ChatRequest(BaseModel):
     question: str
+    provider: str = "gemini"
 
 
 @app.get("/")
@@ -23,8 +23,69 @@ def read_root():
 
 @app.post("/chat")
 def chat(request: ChatRequest):
-    response = client.models.generate_content(
-        model="gemini-3.6-flash",
-        contents=request.question
-    )
-    return {"answer": response.text}
+    start_time = time.time()
+    db = SessionLocal()
+
+    try:
+        # 1. Retrieve relevant code chunks
+        chunks = retriever.retrieve(request.question, top_k=5)
+
+        context = "\n\n".join(
+            f"# {c['chunk_type']} {c['chunk_name']} ({c['file_path']}:{c['start_line']}-{c['end_line']})\n{c['content']}"
+            for c in chunks
+        )
+
+        prompt = f"""You are a coding assistant. Use the following code context to answer the question.
+
+CONTEXT:
+{context}
+
+QUESTION:
+{request.question}
+"""
+
+        # 2. Call the LLM
+        llm = get_llm_client(request.provider)
+        result = llm.generate(prompt)
+
+        latency_ms = int((time.time() - start_time) * 1000)
+
+        # 3. Log the request
+        log_entry = RequestLog(
+            endpoint="/chat",
+            question=request.question,
+            model_used=request.provider,
+            input_tokens=result["input_tokens"],
+            output_tokens=result["output_tokens"],
+            cost_usd=0.0,  # TODO: wire up real pricing in Phase 2
+            latency_ms=latency_ms,
+            cache_hit=False,
+            status="success",
+        )
+        db.add(log_entry)
+        db.commit()
+
+        return {
+            "answer": result["text"],
+            "sources": [
+                {"file_path": c["file_path"], "chunk_name": c["chunk_name"], "similarity": c["similarity"]}
+                for c in chunks
+            ],
+            "latency_ms": latency_ms,
+        }
+
+    except Exception as e:
+        latency_ms = int((time.time() - start_time) * 1000)
+        log_entry = RequestLog(
+            endpoint="/chat",
+            question=request.question,
+            model_used=request.provider,
+            latency_ms=latency_ms,
+            status="error",
+        )
+        db.add(log_entry)
+        db.commit()
+        raise
+
+    finally:
+        db.close()

@@ -1,10 +1,7 @@
-import os
-from dotenv import load_dotenv
+from app.core.config import GEMINI_API_KEY
 from google import genai
 
-# Load the API key from .env
-load_dotenv()
-api_key = os.getenv("GEMINI_API_KEY")
+api_key = GEMINI_API_KEY
 
 client = genai.Client(api_key=api_key)
 
