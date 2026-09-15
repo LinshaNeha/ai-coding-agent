@@ -416,6 +416,29 @@ Tested with curl against the running server (`uvicorn main:app --reload`):
 ## What's next
 
 **Phase 8 — Frontend:** React chat UI (calls `/chat`), merge dashboard UI into the same frontend, diff viewer for agent edits.
+## Phase 8 — Frontend
+
+### 8.1 React chat UI ✅
+- `frontend/src/ChatView.jsx`
+- Calls `/chat` with the user's API key in the `X-API-Key` header
+- Shows a real conversation thread, each assistant reply tagged with its tier/model badge, latency, cache status, and the source code chunks it used
+- Enter-to-send, loading state, error banner for failed requests
+
+### 8.2 Dashboard merged into the same frontend ✅
+- Restructured `App.jsx` into a tabbed layout: Chat / Dashboard / Agent
+- Dashboard tab is the same stats view from Phase 2, now living alongside the chat interface instead of being a separate page
+- Verified live: 59 total requests, 50.8% cache hit rate, real per-question cost breakdown, all rendering correctly
+
+### 8.3 "View changes" / diff viewer for agent edits ✅
+- New backend endpoint: `POST /agent/fix` (`app/api/agent.py`) — wraps Phase 6's `fix_and_verify()`, returns the original code, the final code, and full test output
+- `frontend/src/AgentView.jsx` — a simple line-by-line diff (no external diff library, hand-rolled) showing removed lines in red, added lines in green, plus the full pytest output
+- **Verified end-to-end:** re-broke `buggy_math.py` on purpose, ran it through the Agent tab, watched it correctly diagnose and fix the bug in 1 attempt, with the diff clearly showing `return a - b` → `return a + b`
+
+---
+
+## What's next
+
+**Phase 9 — Deployment:** Dockerfile for the app, docker-compose (app + Postgres), environment config for prod vs dev, deploy to a host.
 
 
 \*\*Phase 4 — Caching:\*\* wire the already-scaffolded `cache\_entries` table into `/chat`, then add semantic (near-duplicate) cache matching.

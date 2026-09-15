@@ -15,6 +15,7 @@ from app.services.llm_client import get_llm_client
 from app.services.pricing import calculate_cost
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.stats import router as stats_router
+from app.api.agent import router as agent_router
 from app.services.compressor import compress_code
 from app.services.cache import get_cached_response, save_to_cache
 from app.services.classifier import get_model_for_question
@@ -28,7 +29,7 @@ app = FastAPI()
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-app.include_router(stats_router)
+app.include_router(agent_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],

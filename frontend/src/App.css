@@ -83,3 +83,276 @@ th {
 .row-error {
   background: rgba(220, 38, 38, 0.08);
 }
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.tab {
+  background: #1a1d23;
+  border: 1px solid #2a2d35;
+  color: #b0b3b8;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.tab.active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: white;
+}
+
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 70vh;
+}
+
+.api-key-row {
+  margin-bottom: 12px;
+}
+
+.api-key-input {
+  width: 100%;
+  padding: 10px 12px;
+  background: #1a1d23;
+  border: 1px solid #2a2d35;
+  border-radius: 6px;
+  color: #e4e6eb;
+  font-size: 13px;
+}
+
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.empty-state {
+  color: #8a8d93;
+  text-align: center;
+  margin-top: 40px;
+}
+
+.message {
+  max-width: 80%;
+  padding: 12px 14px;
+  border-radius: 8px;
+}
+
+.message.user {
+  align-self: flex-end;
+  background: #2563eb;
+}
+
+.message.assistant {
+  align-self: flex-start;
+  background: #1a1d23;
+  border: 1px solid #2a2d35;
+}
+
+.message-role {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.6;
+  margin-bottom: 4px;
+}
+
+.message-text {
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.message-meta {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.badge {
+  font-size: 11px;
+  background: #2a2d35;
+  padding: 3px 8px;
+  border-radius: 4px;
+  color: #b0b3b8;
+}
+
+.badge-cached {
+  background: #16653433;
+  color: #4ade80;
+}
+
+.sources {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.source-chip {
+  font-size: 11px;
+  background: #0f1115;
+  border: 1px solid #2a2d35;
+  padding: 3px 8px;
+  border-radius: 4px;
+  color: #8a8d93;
+}
+
+.error-banner {
+  background: rgba(220, 38, 38, 0.1);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  padding: 10px 12px;
+  border-radius: 6px;
+  color: #f87171;
+  font-size: 13px;
+}
+
+.input-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.input-row textarea {
+  flex: 1;
+  background: #1a1d23;
+  border: 1px solid #2a2d35;
+  border-radius: 6px;
+  color: #e4e6eb;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 14px;
+  resize: none;
+}
+
+.input-row button {
+  background: #2563eb;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  padding: 0 20px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.input-row button:disabled {
+  background: #2a2d35;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+.agent-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.agent-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 500px;
+}
+
+.agent-input {
+  padding: 10px 12px;
+  background: #1a1d23;
+  border: 1px solid #2a2d35;
+  border-radius: 6px;
+  color: #e4e6eb;
+  font-size: 13px;
+}
+
+.agent-form button {
+  background: #2563eb;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  padding: 10px 20px;
+  font-size: 14px;
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.agent-form button:disabled {
+  background: #2a2d35;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+.result-banner {
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.result-banner.success {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #4ade80;
+}
+
+.result-banner.fail {
+  background: rgba(220, 38, 38, 0.1);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  color: #f87171;
+}
+
+.diff-view {
+  background: #0f1115;
+  border: 1px solid #2a2d35;
+  border-radius: 6px;
+  padding: 12px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 13px;
+  overflow-x: auto;
+}
+
+.diff-line {
+  white-space: pre;
+  padding: 1px 8px;
+}
+
+.diff-same {
+  color: #6b7280;
+}
+
+.diff-added {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+}
+
+.diff-removed {
+  background: rgba(220, 38, 38, 0.12);
+  color: #f87171;
+}
+
+.diff-marker {
+  display: inline-block;
+  width: 16px;
+  opacity: 0.6;
+}
+
+.test-output {
+  background: #0f1115;
+  border: 1px solid #2a2d35;
+  border-radius: 6px;
+  padding: 12px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-x: auto;
+  max-height: 300px;
+  overflow-y: auto;
+}
