@@ -439,6 +439,35 @@ Tested with curl against the running server (`uvicorn main:app --reload`):
 ## What's next
 
 **Phase 9 — Deployment:** Dockerfile for the app, docker-compose (app + Postgres), environment config for prod vs dev, deploy to a host.
+## Phase 9 — Deployment (in progress)
+
+### 9.1 Dockerfile ✅
+- Base image `python:3.11-slim`, installs `gcc` and `libpq-dev` (needed for `psycopg2` and `tree-sitter` to compile inside Linux), installs `requirements.txt`, copies the app in, runs `uvicorn` bound to `0.0.0.0` (not `127.0.0.1`, since a container needs to accept external connections)
+- Note: Notepad silently saved this as `Dockerfile.txt` on first attempt (Windows hides extensions by default) — had to rename with `ren Dockerfile.txt Dockerfile`
+
+### 9.2 docker-compose (app + Postgres) ✅
+- `docker-compose.yml` — two services: `db` (same `pgvector/pgvector:pg16` image as local dev, its own separate volume) and `app` (built from the Dockerfile)
+- `app` waits for `db`'s healthcheck before starting
+- Inside the compose network, the app connects to the database via the service name `db`, not `localhost` — containers on the same network address each other by service name
+
+### Environment config for prod vs dev ✅
+- `app/core/config.py`: `.env` values now only fill in environment variables that aren't **already** set, rather than unconditionally overwriting them — critical fix, since Docker Compose injects `DATABASE_URL` etc. as real environment variables, and the old code was silently overwriting them with the stale local `.env` values baked into the image
+- Added `ENVIRONMENT` variable (`development`/`production`), used to conditionally extend allowed CORS origins in `main.py`
+- `.dockerignore` added (`.env`, `venv/`, `__pycache__/`, `backups/`, `node_modules/`, `.git/`) so local secrets and dev artifacts never get copied into the image in the first place
+
+### Real bugs caught and fixed while testing this phase
+- **Env var override bug:** as above — `.env` was overriding real Docker-injected environment variables, causing the containerized app to try connecting to `localhost:5433` (your local dev Postgres) instead of `db:5432` (the containerized one). Fixed by making `.env` only fill in *missing* variables.
+- **Empty database on first compose run:** `docker-compose` creates a brand new, separate database volume from your local dev setup — so the `vector` extension and all tables had to be created fresh inside this container the same way they were originally created locally (`CREATE EXTENSION vector;`, then `python -m app.core.init_db`, then re-running the indexer to populate `code_chunks`)
+- **Verified fully working end-to-end inside Docker:** real `/chat` requests, correct tier routing, correct semantic retrieval pulling genuine source chunks — proving the whole system runs identically whether native or fully containerized
+
+### 9.3 Deploy to a host — not yet done
+Next session: pick a host (Railway, Render, or a VPS), and deploy.
+
+---
+
+## What's next
+
+**Phase 9 (continued):** deploy to a real host.
 
 
 \*\*Phase 4 — Caching:\*\* wire the already-scaffolded `cache\_entries` table into `/chat`, then add semantic (near-duplicate) cache matching.
