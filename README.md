@@ -468,6 +468,45 @@ Next session: pick a host (Railway, Render, or a VPS), and deploy.
 ## What's next
 
 **Phase 9 (continued):** deploy to a real host.
+### 9.3 Deployed to a real host (Render) ✅
+
+**Database:** Render PostgreSQL (free tier, expires 30 days after creation — genuinely free, no card required, vs. Render's paid Postgres tiers starting at $6/month). `pgvector` extension enabled manually via `psql`, tables created via a one-off script pointed at the Render connection string.
+
+**Web service:** Deployed from the GitHub repo directly, using the existing `Dockerfile` — Render auto-detected Docker and built the same image tested locally with `docker compose`. Free instance tier (spins down after 15 min of inactivity, wakes on the next request).
+
+**Environment variables set on Render:**
+- `DATABASE_URL` — the database's **Internal** connection URL (private network between Render services, faster and free, vs. External which is for outside connections)
+- `GEMINI_API_KEY`
+- `API_KEY` — rotated to a new value after the original was shared in conversation; both local `.env` and Render updated to match
+- `ENVIRONMENT=production`
+
+**Verified fully live and working:**
+- Root endpoint (`GET /`) responding correctly from the public URL
+- `POST /chat` — real API key auth, real database connection, real Gemini call, correct tier routing, all running entirely on Render's infrastructure
+- Codebase re-indexed against the cloud database (51 chunks) via a one-off script — semantic retrieval confirmed working with real source chunks and grounded answers, matching local dev behavior exactly
+
+**Live URL:** `https://ai-coding-agent-7kbo.onrender.com`
+
+**Known limitation:** the free database expires 30 days after creation (~mid-October 2026) unless upgraded to a paid plan. Recreating it when that happens is quick: new free Postgres on Render → `CREATE EXTENSION vector;` → re-run `init_db` → re-run the indexer → update `DATABASE_URL` in the web service's environment variables.
+
+---
+
+## Roadmap status
+
+**Phases 1–9 (the full core build) are now complete:**
+- ✅ Phase 1 — Foundation
+- ✅ Phase 2 — Cost/Token Dashboard
+- ✅ Phase 3 — Compression
+- ✅ Phase 4 — Caching
+- ✅ Phase 5 — Model Routing
+- ✅ Phase 6 — Agent Loop + Verification
+- ✅ Phase 7 — Reliability & Auth
+- ✅ Phase 8 — Frontend
+- ✅ Phase 9 — Deployment
+
+**Optional, for later:**
+- Phase 10 — VS Code Extension
+- Phase 11 — Custom Model (fine-tuning on usage logs)
 
 
 \*\*Phase 4 — Caching:\*\* wire the already-scaffolded `cache\_entries` table into `/chat`, then add semantic (near-duplicate) cache matching.
