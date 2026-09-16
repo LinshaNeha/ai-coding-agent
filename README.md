@@ -6,15 +6,107 @@
 
 
 
-Built the foundation of an AI coding assistant that answers questions about a codebase using real semantic search — not keyword matching. The system parses Python files into functions/classes using Tree-sitter, embeds each piece with Gemini's embedding model, stores them in PostgreSQL with pgvector, and retrieves the most relevant code for any question before asking Gemini to answer using that context. Every request — tokens, latency, cost, success/failure — gets logged to the database for later cost analysis.
+Built a working AI coding assistant that answers questions about a codebase using real semantic search, not keyword matching. The system parses Python files into functions/classes using Tree-sitter, embeds each piece with Gemini's embedding model, stores them in PostgreSQL with pgvector, and retrieves the most relevant code for any question before asking Gemini to answer using that context. Every request is logged for cost analysis, with caching, compression, and model routing to keep costs down. The app is deployed live on Render.
 
 
 
-Along the way: fought through a Windows PATH corruption issue, reset a forgotten Postgres password, and switched pgvector from a native Windows install to the official Docker image after Visual Studio Build Tools weren't available.
+\*\*Status:\*\* All 9 core phases complete. Fully deployed, fully tested end to end.
 
 
 
-\*\*Status:\*\* Phase 1 (Foundation) fully complete — indexing, embedding, retrieval, and the `/chat` API all working end-to-end and tested with real questions against the app's own source code.
+\*\*Live URL:\*\* https://ai-coding-agent-7kbo.onrender.com
+
+
+
+\---
+
+
+
+\## Example: How It Actually Works
+
+
+
+Here's a real request/response cycle, showing exactly what happens end to end.
+
+
+
+\*\*You send:\*\*
+
+
+
+curl -X POST https://ai-coding-agent-7kbo.onrender.com/chat
+
+\-H "Content-Type: application/json"
+
+\-H "X-API-Key: your-api-key"
+
+\-d '{"question": "How does the semantic cache work?"}'
+
+
+
+
+
+\*\*What happens internally, step by step:\*\*
+
+
+
+1\. \*\*Cache check\*\* (`app/services/cache.py`) -- the question is hashed and checked against `cache\_entries` for an exact match. No hit, so it's embedded (3072-dim vector via `gemini-embedding-001`) and compared against past questions using cosine similarity. If something 0.82 or more similar was asked before, the cached answer returns immediately -- this is what makes repeat/near-duplicate questions come back in under 100ms instead of \~10 seconds.
+
+
+
+2\. \*\*Difficulty routing\*\* (`app/services/classifier.py`) -- the question is classified as "simple" or "complex" based on keywords and length. "How does X work" contains an explanatory pattern, so it routes to the stronger, more expensive model (`gemini-3.6-flash`) rather than the cheap one (`gemini-3.1-flash-lite`).
+
+
+
+3\. \*\*Semantic retrieval\*\* (`app/services/retriever.py`) -- the question is embedded and compared against every indexed code chunk in `code\_chunks` using pgvector's cosine distance. The top 5 most relevant chunks come back -- in this case, real chunks from `cache.py` itself.
+
+
+
+4\. \*\*Compression\*\* (`app/services/compressor.py`) -- each retrieved chunk has blank lines and standalone comments stripped before being added to the prompt, cutting token count without changing meaning.
+
+
+
+5\. \*\*LLM call\*\* -- the compressed chunks plus the question are sent to Gemini. The response, along with real token counts, comes back.
+
+
+
+6\. \*\*Logging\*\* -- the request is saved to `request\_logs`: tokens used, calculated cost, latency, which model tier handled it, cache hit/miss.
+
+
+
+\*\*You get back:\*\*
+
+```json
+
+{
+
+&#x20; "answer": "The semantic cache works in two stages: first an exact hash match... \[full explanation, grounded in the actual code]",
+
+&#x20; "sources": \[
+
+&#x20;   {"file\_path": "app/services/cache.py", "chunk\_name": "get\_cached\_response", "similarity": 0.63},
+
+&#x20;   {"file\_path": "app/services/cache.py", "chunk\_name": "save\_to\_cache", "similarity": 0.58}
+
+&#x20; ],
+
+&#x20; "latency\_ms": 3269,
+
+&#x20; "tier": "complex",
+
+&#x20; "model\_used": "gemini-3.6-flash"
+
+}
+
+```
+
+
+
+Notice the `sources` field -- you can see exactly which pieces of code the answer is grounded in, so you can verify it isn't hallucinating.
+
+
+
+\*\*Ask the exact same question again\*\*, and instead of repeating steps 2-5, it hits the cache in step 1 and returns in \~50ms with `"cached": true` -- no LLM call, no cost, same accurate answer.
 
 
 
@@ -26,47 +118,23 @@ Along the way: fought through a Windows PATH corruption issue, reset a forgotten
 
 
 
-\*\*Retrieval quality (semantic search via pgvector):\*\*
-
-\- Questions directly about the codebase returned highly relevant chunks, similarity scores ranging \*\*0.55–0.68\*\*
-
-&#x20; - "How does the LLM client work?" → top match: `get\_llm\_client` (0.682)
-
-&#x20; - "What tables exist and what do they store?" → top match: `init\_db` (0.620)
-
-&#x20; - "How does the code get split into chunks?" → top match: `\_walk` (0.654)
-
-\- An intentionally off-topic question ("What is the weather today?") correctly scored lower (\*\*0.50–0.53\*\*), and the model correctly responded that it had no relevant information — no hallucination.
+\*\*Retrieval quality:\*\* questions about the codebase returned relevant chunks with similarity scores 0.55-0.68. An off-topic question ("What is the weather today?") correctly scored lower (0.50-0.53) and the model said it had no relevant information rather than hallucinating.
 
 
 
-\*\*End-to-end pipeline correctness:\*\*
-
-\- 28 code chunks successfully extracted from the app's own source (`app/`) via Tree-sitter AST parsing
-
-\- All 28 chunks embedded (3072-dim vectors via `gemini-embedding-001`) and stored in Postgres/pgvector
-
-\- 4 live `/chat` requests tested via curl, all logged correctly to `request\_logs` with accurate token counts and status
+\*\*Compression:\*\* \~3.7-5.9% token reduction, safe and conservative (only blank lines and standalone comments stripped).
 
 
 
-\*\*Baseline performance numbers (4 requests):\*\*
+\*\*Caching:\*\* exact-match repeat questions went from \~6591ms to \~54ms. Semantic cache threshold of 0.82 was chosen from real measured data (lightly reworded questions scored 0.85 similarity, heavily reworded scored 0.94, genuinely different questions scored 0.79).
 
 
 
-| Metric | Value |
-
-|---|---|
-
-| Average latency | \~9.4 seconds |
-
-| Average input tokens/request | \~810 |
-
-| Total output tokens (4 requests) | 1,377 |
+\*\*Model routing:\*\* simple questions routed to `gemini-3.1-flash-lite` ($0.25/M input, $1.50/M output), complex questions to `gemini-3.6-flash` ($0.75/M input, $3.75/M output) -- confirmed via real cost differences in the dashboard.
 
 
 
-These numbers are the baseline to compare against once Phase 3 (compression) and Phase 4 (caching) are built — the whole point of those phases is bringing latency and token cost down from this starting point.
+\*\*Deployment:\*\* fully live on Render, verified with real HTTP requests against the public URL, including full semantic retrieval working against the cloud database.
 
 
 
@@ -74,127 +142,129 @@ These numbers are the baseline to compare against once Phase 3 (compression) and
 
 
 
-\## Phase 1 — Foundation, Step by Step
+\## Phase 1 -- Foundation
 
 
 
-\### 1.1 Project structure, FastAPI skeleton ✅
+\- \*\*1.1\*\* Project structure, FastAPI skeleton
 
-\- `app/api`, `app/core`, `app/models`, `app/services` — each with `\_\_init\_\_.py`
+\- \*\*1.2\*\* PostgreSQL + pgvector, via official Docker image `pgvector/pgvector:pg16` (avoided third-party Windows binaries and Visual Studio Build Tools)
 
-\- `main.py` at project root running the FastAPI app
+\- \*\*1.3\*\* DB models: `request\_logs`, `cache\_entries`, `code\_chunks` (SQLAlchemy, in `app/core/database.py` and `app/models/`)
 
+\- \*\*1.4\*\* Swappable LLM client (`app/services/llm\_client.py`) -- Gemini live, Claude/OpenAI stubbed behind the same interface
 
+\- \*\*1.5\*\* Tree-sitter AST indexer (`app/services/indexer.py`) -- parses Python into function/class chunks, not arbitrary line splits
 
-\### 1.2 PostgreSQL + pgvector installed and running ✅
+\- \*\*1.6\*\* Embedding generation (`app/services/embedder.py`) -- `gemini-embedding-001`, 3072 dimensions
 
-\- Native PostgreSQL 16 installed on Windows initially (kept, but unused going forward)
+\- \*\*1.7\*\* Semantic retriever (`app/services/retriever.py`) -- pgvector cosine similarity search
 
-\- pgvector added via the \*\*official Docker image\*\* `pgvector/pgvector:pg16` instead of compiling from source or using third-party Windows binaries
+\- \*\*1.8\*\* `POST /chat` endpoint -- ties indexer, retriever, LLM, and DB logging together
 
-\- Container name: `pgvector-db`, mapped to port `5433` (native Postgres still owns `5432`)
+\- \*\*1.9\*\* End-to-end tested against the app's own source code
 
-\- Container set to auto-restart: `docker update --restart unless-stopped pgvector-db`
 
-\- Database created: `ai\_coding\_agent`
 
-\- Extension enabled: `CREATE EXTENSION vector;` — confirmed version `0.8.6`
+\## Phase 2 -- Cost/Token Dashboard
 
 
 
-\### 1.3 DB models: `request\_logs`, `cache\_entries`, `code\_chunks` ✅
+\- \*\*2.1\*\* `GET /stats` and `GET /stats/by-question` endpoints (`app/api/stats.py`)
 
-\- `app/core/database.py` — SQLAlchemy engine, `SessionLocal`, `Base`, `get\_db()`
+\- \*\*2.2\*\* React dashboard (Vite-scaffolded `frontend/`) showing stat cards and a request table
 
-\- `app/models/request\_log.py` — logs every request: question, tokens, cost, latency, cache\_hit, status
+\- \*\*2.3\*\* Per-question cost breakdown, delivered by the same stats endpoint
 
-\- `app/models/cache\_entry.py` — exact-match cache: query\_hash, query\_text, response\_text, hit\_count
+\- Real cost tracking added (`app/services/pricing.py`) using actual Gemini pricing
 
-\- `app/models/code\_chunk.py` — indexed code pieces with `embedding` column (`Vector(3072)`)
 
-\- Tables created via `app/core/init\_db.py`, run with: `python -m app.core.init\_db`
 
+\## Phase 3 -- Compression
 
 
-\### 1.4 Swappable LLM client ✅
 
-\- `app/services/llm\_client.py`
+\- \*\*3.1\*\* `compress\_code()` (`app/services/compressor.py`) -- strips trailing whitespace, collapses blank lines, removes full-line comments. Does not touch inline comments or strings.
 
-\- Abstract base class `LLMClient` with a `generate(prompt) -> dict` interface
+\- \*\*3.2\*\* Wired into `/chat`, applied to each retrieved chunk before building the prompt
 
-\- `GeminiClient` — fully working, uses `google-genai` SDK
+\- \*\*3.3\*\* Measured \~3.7% reduction on a like-for-like question vs the Phase 1 baseline
 
-\- `ClaudeClient` / `OpenAIClient` — stubs, raise `NotImplementedError` until implemented
 
-\- `get\_llm\_client(provider)` factory function selects the right client
 
+\## Phase 4 -- Caching
 
 
-\*\*Note on model names:\*\* Available Gemini models as of this session include `gemini-3.6-flash` (used for chat) and `gemini-embedding-001` (used for embeddings, outputs \*\*3072 dimensions\*\*, not the older 768 from `text-embedding-004`).
 
+\- \*\*4.1\*\* Exact-match cache (`cache\_entries` table, `app/services/cache.py`)
 
+\- \*\*4.2\*\* Wired into `/chat`, checked before retrieval/compression/LLM call
 
-\### 1.5 Tree-sitter AST indexer (Python) ✅
+\- \*\*4.3\*\* Semantic cache upgrade -- `cache\_entries.embedding` column added, two-stage lookup (exact hash, then cosine similarity with a 0.82 threshold)
 
-\- `app/services/indexer.py`
 
-\- Uses `tree-sitter` + `tree-sitter-python` (official PyPI packages)
 
-\- Parses `.py` files into an AST, extracts `function\_definition` and `class\_definition` nodes as chunks
+\## Phase 5 -- Model Routing
 
-\- Descends into classes (to catch methods) but not into function bodies (avoids duplicate nested chunks)
 
-\- `index\_directory()` walks a folder recursively, skipping `venv`, `\_\_pycache\_\_`, `.git`, `node\_modules`
 
+\- \*\*5.1\*\* Heuristic difficulty classifier (`app/services/classifier.py`)
 
+\- \*\*5.2\*\* Routes between `gemini-3.1-flash-lite` (simple) and `gemini-3.6-flash` (complex); Claude/OpenAI tiers stubbed for later
 
-\### 1.6 Embedding generation for code chunks ✅
+\- \*\*5.3\*\* Tier and actual model name logged per request, visible in the dashboard
 
-\- `app/services/embedder.py`
 
-\- Uses `gemini-embedding-001`, outputs 3072-dim vectors
 
-\- `embed\_text()` — single string in, vector out
+\## Phase 6 -- Agent Loop + Verification
 
-\- `embed\_chunks()` — batch version for indexer output
 
 
+\- \*\*6.1\*\* File read/write tools (`app/services/file\_tools.py`)
 
-\### 1.7 Semantic retriever (pgvector similarity search) ✅
+\- \*\*6.2\*\* Test executor (`app/services/test\_executor.py`) -- runs pytest via `sys.executable`, returns structured pass/fail results
 
-\- `app/services/retriever.py`
+\- \*\*6.3\*\* Fix-loop (`app/services/fix\_loop.py`) -- diagnose failure, generate patch, apply, re-run tests, repeat up to 3 attempts. Verified end to end on a real bug.
 
-\- Embeds the incoming question, then uses pgvector's `cosine\_distance()` to rank stored code chunks
+\- \*\*6.4\*\* Auto-backup before any file edit (timestamped `.bak` files in `backups/`)
 
-\- Returns top-k chunks with a similarity score (1 - distance)
 
 
+\## Phase 7 -- Reliability \& Auth
 
-\### 1.8 `POST /chat` endpoint ✅
 
-\- `main.py` rewritten to tie everything together:
 
-&#x20; 1. Retrieve relevant code chunks for the question
+\- \*\*7.1\*\* Global exception handler, structured logging, clean error responses instead of raw tracebacks
 
-&#x20; 2. Build a prompt with that context injected
+\- \*\*7.2\*\* Pydantic validation on `/chat` (question length, non-blank, valid provider)
 
-&#x20; 3. Call the LLM via `get\_llm\_client()`
+\- \*\*7.3\*\* API key auth via `X-API-Key` header (`app/core/auth.py`)
 
-&#x20; 4. Log the request (tokens, latency, status) to `request\_logs`
+\- \*\*7.4\*\* Rate limiting via `slowapi` -- 10 requests/minute per IP, verified with real repeated requests
 
-&#x20; 5. Return the answer + source chunks used + latency
 
-\- Handles errors by still logging a failed request before re-raising
 
+\## Phase 8 -- Frontend
 
 
-\### 1.9 End-to-end testing ✅
 
-Tested with curl against the running server (`uvicorn main:app --reload`):
+\- \*\*8.1\*\* React chat UI (`frontend/src/ChatView.jsx`) -- real conversation thread, tier/model badges, source chips
 
-\- Questions about the codebase itself (LLM client, DB tables, chunking logic) → high similarity scores (0.55–0.68), accurate grounded answers
+\- \*\*8.2\*\* Dashboard merged into the same frontend as a tab
 
-\- An off-topic question ("What is the weather today?") → correctly low similarity (\~0.50–0.53) and the model correctly said it had no relevant information, rather than hallucinating
+\- \*\*8.3\*\* Diff viewer for agent edits (`frontend/src/AgentView.jsx`, backend endpoint `POST /agent/fix`) -- shows a red/green line diff plus full test output, verified on a real bug fix
+
+
+
+\## Phase 9 -- Deployment
+
+
+
+\- \*\*9.1\*\* `Dockerfile` (Python 3.11-slim, includes build tools for psycopg2/tree-sitter) and `docker-compose.yml` (app + Postgres, healthcheck-gated startup)
+
+\- \*\*9.2\*\* Environment config for prod vs dev (`ENVIRONMENT` variable, `.env` values only fill in variables not already set by the real environment -- critical fix for Docker/Render, since real env vars must win over stale local `.env` values baked into an image)
+
+\- \*\*9.3\*\* Deployed live on Render: free PostgreSQL (pgvector enabled manually, expires 30 days after creation, cheap/easy to recreate), free web service built from the existing Dockerfile, all environment variables (including a rotated `API\_KEY` after the original was shared in chat) set on Render. Verified with real HTTP requests against the public URL, including full semantic retrieval against the cloud database (51 chunks re-indexed).
 
 
 
@@ -206,19 +276,19 @@ Tested with curl against the running server (`uvicorn main:app --reload`):
 
 
 
-\- \*\*PATH issues on Windows:\*\* `setx` truncates PATH at 1024 characters and can silently break other tools (lost `python` from PATH this way — fixed since venv has its own Python anyway). Prefer the GUI environment variable editor for permanent changes.
+\- \*\*PATH issues on Windows:\*\* `setx` truncates PATH at 1024 characters and can silently break other tools. Prefer the GUI environment variable editor for permanent changes.
 
-\- \*\*Multiple Postgres versions installed\*\* (16 and 17) — only 16 is actually running as a service; 17 was an unused leftover.
+\- \*\*pgvector on native Windows Postgres\*\* was avoided entirely -- no official Windows binary exists, and building from source needs Visual Studio Build Tools. Used the official Docker image instead.
 
-\- \*\*postgres user password\*\* had to be reset via temporarily setting `pg\_hba.conf` auth method to `trust`, then reverted back to `scram-sha-256` after setting a new password.
+\- \*\*`python-dotenv` was intentionally removed\*\* in favor of a small hand-written `.env` parser using only Python's built-in `os` and `pathlib`.
 
-\- \*\*pgvector on native Windows Postgres\*\* was avoided — no official Windows binary exists; building from source requires Visual Studio C++ Build Tools. Switched to the official Docker image instead for a supported, unmodified install.
+\- \*\*Embedding model changed\*\* from the originally planned `text-embedding-004` (768-dim, not available on this account) to `gemini-embedding-001` (3072-dim). The `code\_chunks.embedding` column reflects this.
 
-\- \*\*`python-dotenv` was intentionally removed\*\* — replaced with a small hand-written `.env` parser in `app/core/config.py` using only Python's built-in `os` and `pathlib`.
+\- \*\*Docker Compose env var override bug:\*\* `.env` was unconditionally overwriting real environment variables Docker injected, causing the containerized app to try connecting to the wrong database. Fixed by making `.env` only fill in variables that aren't already set.
 
-\- \*\*Embedding model changed:\*\* originally planned `text-embedding-004` (768-dim) is not available on this account; using `gemini-embedding-001` (3072-dim) instead. `code\_chunks.embedding` column updated to `Vector(3072)` accordingly.
+\- \*\*Render's free Postgres expires after 30 days\*\* (unlike the app hosting itself, which stays free indefinitely). Fine for a portfolio project; just needs periodic recreation.
 
-\- \*\*Docker containers don't restart automatically\*\* by default after Docker Desktop restarts — fixed with `docker update --restart unless-stopped pgvector-db`.
+\- \*\*API key rotation:\*\* the original `API\_KEY` value was shared in conversation and treated as compromised -- rotated to a new value across both local `.env` and the Render deployment.
 
 
 
@@ -230,13 +300,17 @@ Tested with curl against the running server (`uvicorn main:app --reload`):
 
 
 
-\- \*\*Database (Docker):\*\* `postgresql://postgres:devpassword@localhost:5433/ai\_coding\_agent`
+\- \*\*Local database (Docker):\*\* `postgresql://postgres:devpassword@localhost:5433/ai\_coding\_agent`
 
-\- \*\*Start container if stopped:\*\* `docker start pgvector-db`
+\- \*\*Start local container if stopped:\*\* `docker start pgvector-db`
 
-\- \*\*Run server:\*\* `uvicorn main:app --reload` (from project root, venv active)
+\- \*\*Run server locally:\*\* `uvicorn main:app --reload` (from project root, venv active)
+
+\- \*\*Run everything via Docker Compose:\*\* `docker compose up --build`
 
 \- \*\*Re-index codebase:\*\* `python -m app.services.index\_pipeline`
+
+\- \*\*Live deployment:\*\* https://ai-coding-agent-7kbo.onrender.com
 
 
 
@@ -244,270 +318,17 @@ Tested with curl against the running server (`uvicorn main:app --reload`):
 
 
 
-\## What's next
+\## Roadmap status
 
 
 
-\*\*Phase 2 — Cost/Token Dashboard:\*\* aggregate stats endpoint, basic React dashboard, per-question cost breakdown.
+\*\*Phases 1-9 (the full core build) are complete.\*\*
 
-## Phase 2 — Cost/Token Dashboard
 
-### 2.1 `GET /stats` endpoint ✅
-- `app/api/stats.py`
-- `GET /stats` — aggregate totals: request count, total cost, total input/output tokens, average latency, cache hit rate, error count
-- `GET /stats/by-question` — per-request breakdown (last 20 by default): question, model, tokens, cost, latency, status
-- Wired into `main.py` via `app.include_router(stats_router)`
 
-### 2.2 Basic React dashboard page ✅
-- Scaffolded with Vite (`npm create vite@latest frontend -- --template react`), running on `http://localhost:5173`
-- `frontend/src/App.jsx` — fetches `/stats` and `/stats/by-question` on load, renders stat cards + a request table
-- Failed requests are visually highlighted (red row) in the table
-- CORS enabled on the FastAPI backend (`CORSMiddleware`, allowing `localhost:5173`) so the frontend can call the API across ports
+\*\*Optional, for later:\*\*
 
-### 2.3 Per-question cost breakdown view ✅
-- Delivered by the same `/stats/by-question` endpoint + the "Recent Requests" table in the dashboard
-- Shows exact cost, tokens, latency, and status per individual question
-- Note: a true per-*file* breakdown (cost attributed to which code chunks get pulled into requests) is not yet built — would need to track which source chunks were used per request more explicitly
+\- Phase 10 -- VS Code Extension
 
-### Real cost tracking added
-- `app/services/pricing.py` — calculates real `cost_usd` per request based on Gemini's actual pricing
-- Gemini 3.6 Flash: $0.75 / million input tokens, $3.75 / million output tokens (promotional rate through Dec 31, 2026, per Google Cloud's pricing page)
-- Wired into `/chat` in `main.py` so every successful request now logs a real dollar cost, not a placeholder `0.0`
-
----
-
-## What's next
-
-**Phase 3 — Compression:** strip whitespace/redundancy before sending to the LLM, measure impact against this session's baseline numbers.
-
-\*\*Phase 3 — Compression:\*\* strip whitespace/redundancy before sending to the LLM, measure impact against this session's baseline numbers.
-## Phase 3 — Compression
-
-### 3.1 Compression service ✅
-- `app/services/compressor.py`
-- `compress_code(text)` — a deliberately conservative, safe transformation:
-  - Strips trailing whitespace from every line
-  - Collapses multiple consecutive blank lines into one
-  - Removes full-line comments (lines that are *only* a comment)
-  - Does **not** touch inline comments or string contents, to avoid any risk of breaking code semantics
-- Verified standalone: ~5.9% character reduction on `indexer.py`
-
-### 3.2 Wired into `/chat` ✅
-- Applied to each retrieved code chunk's content when building the LLM prompt, in `main.py`
-- Runs on every request (will naturally apply "only on cache miss" once combined with Phase 4's cache-first flow, since cached responses skip this step entirely)
-
-### 3.3 Measured impact vs Phase 1 baseline ✅
-- Re-ran an identical question from Phase 1 testing ("How does the code get split into chunks?")
-- Before compression: **1586 input tokens**
-- After compression: **1528 input tokens**
-- ~3.7% reduction on this question, with no loss in answer quality or accuracy — a modest, safe win rather than an aggressive one
-
----
-
-## Phase 4 — Caching
-
-### 4.1 Exact-match cache table ✅
-- `cache_entries` table (already scaffolded in Phase 1) is now actively used
-- `app/services/cache.py` — `hash_query()` creates a stable SHA-256 hash of a normalized (trimmed, lowercased) question, used as the lookup key
-
-### 4.2 Cache wired into `/chat` ✅
-- Cache check happens **first**, before retrieval, compression, or any LLM call — a true cache hit skips the entire expensive pipeline
-- On a hit: returns the cached answer directly, logs the request with `cache_hit: true`, `input_tokens: 0`, `output_tokens: 0`, `cost_usd: 0.0`
-- On a miss: runs the full pipeline as normal, then `save_to_cache()` stores the new question/answer pair for next time
-- **Verified performance:** repeat question went from **~6591ms → ~54ms** (exact same, accurate answer both times)
-
-### 4.3 Semantic cache upgrade ✅
-- `cache_entries` extended with an `embedding` column (`Vector(3072)`, same dimension as code chunks)
-- Two-stage lookup on every `/chat` call:
-  1. **Exact hash match** — instant, zero embedding cost, for identical questions
-  2. **Semantic match** — if no exact hit, embeds the incoming question and runs a cosine-similarity search over all previously cached questions (same pgvector pattern as `retriever.py` uses for code search). If the closest match scores **≥ 0.82**, that cached answer is reused instead of calling the LLM
-- `save_to_cache()` now also stores the question's embedding alongside every new answer, so the semantic index grows automatically as more questions come in
-- **Threshold chosen from real measured data**, not guessed:
-  - Same question, lightly reworded → 0.85 similarity → correctly hit
-  - Same question, heavily reworded → 0.94 similarity → correctly hit
-  - Genuinely different question (a "why" vs a "how") → 0.79 similarity → correctly missed
-  - `0.82` sits cleanly in the gap between "different question" and "same question," based on this data
-
----
-
-## What's next
-
-**Phase 5 — Model Routing:** task-difficulty classifier to route between model tiers, log which tier was picked per request, surface on dashboard.
-## Phase 5 — Model Routing
-
-### 5.1 Task-difficulty classifier ✅
-- `app/services/classifier.py`
-- Heuristic-based, no ML model needed: checks for complexity-signaling keywords ("explain", "why", "compare", "architecture", etc.) and simple-signaling keywords ("what is", "list", "define"), combined with word count thresholds
-- `classify_difficulty(question)` → `"simple"` or `"complex"`
-- Tested against real questions: factual "what/list" questions correctly classified simple; "explain"/"why" questions correctly classified complex
-
-### 5.2 Routes between Gemini tiers ✅
-- `TIER_MODELS` mapping: `"simple"` → `gemini-3.1-flash-lite` ($0.25/M input, $1.50/M output), `"complex"` → `gemini-3.6-flash` ($0.75/M input, $3.75/M output)
-- `get_llm_client()` extended to accept an explicit `model` override, so routing can pick the exact model per request without changing the client abstraction
-- Claude/OpenAI tiers remain stubbed (per Phase 1), ready to slot into this same routing logic once implemented
-
-### 5.3 Tier logged per request ✅
-- `request_logs.model_used` now stores the actual model name used (e.g. `gemini-3.1-flash-lite`), not just the provider
-- `/chat` response includes `"tier"` and `"model_used"` fields
-- Verified in `/stats/by-question`: simple-tier requests show visibly lower cost per request than complex-tier ones, confirming routing is genuinely saving money on easy questions
-
----
-
-## What's next
-
-**Phase 6 — Agent Loop + Verification:** file read/write tools, test executor (pytest), diagnose → patch → re-run → verify fix-loop, auto-backup before edits.
-## Phase 6 — Agent Loop + Verification
-
-### 6.1 File read/write tools ✅
-- `app/services/file_tools.py`
-- `read_file()`, `write_file()` — standard file operations
-- Tested standalone before wiring into anything automated
-
-### 6.2 Test executor ✅
-- `app/services/test_executor.py`
-- Runs pytest via `subprocess`, using `sys.executable` (not a hardcoded `"python"`) so it always uses the correct venv interpreter
-- Returns structured results: `passed` (bool), full `output`, a `summary` line, and the raw return code
-- Verified against a real `tests/` folder with genuine pytest tests (`tests/test_pricing.py`)
-
-### 6.3 Fix-loop: diagnose → patch → apply → re-run → verify ✅
-- `app/services/fix_loop.py`
-- `fix_and_verify(file_path, test_path)`:
-  1. Runs tests — if already passing, stops immediately
-  2. On failure, reads the current file and builds a prompt containing both the buggy code and the actual test failure output
-  3. Asks the LLM to return the complete corrected file (not a diff, for reliability in this first version)
-  4. Extracts the code from the response and writes it (auto-backed-up first, via 6.4)
-  5. Repeats up to 3 attempts if the first fix doesn't fully resolve the failure
-- **Verified end-to-end on a real bug:** a deliberately broken `add_numbers()` function (`return a - b` instead of `a + b`) was correctly diagnosed and fixed by the LLM in a single attempt, confirmed by the previously-failing test passing afterward
-
-### 6.4 Auto-backup before any edit ✅
-- `file_tools.write_file()` automatically copies the existing file into a timestamped `backups/` folder before overwriting it (skipped only for genuinely new files, since there's nothing to back up yet)
-- `backups/` added to `.gitignore` — these are local safety nets, not meant to be committed
-- Verified: editing `buggy_math.py` produced a real `.bak` file in `backups/` before the fix was applied
-
----
-
-## What's next
-
-**Phase 7 — Reliability & Auth:** structured error handling across endpoints, Pydantic request validation, basic API key auth, rate limiting.
-## Phase 7 — Reliability & Auth
-
-### 7.1 Structured error handling ✅
-- Global exception handler (`@app.exception_handler(Exception)`) catches anything unhandled and returns a clean, generic 500 response instead of leaking a raw Python traceback to the client
-- Proper logging via Python's `logging` module (`logger.exception(...)`) instead of silent failures or bare `print()`
-- `/chat`'s own error path now logs the failed request to `request_logs` and raises a clean `HTTPException`, rather than re-raising the raw exception
-
-### 7.2 Request validation (Pydantic) ✅
-- `ChatRequest.question` — must be 1–2000 characters, and a custom validator rejects whitespace-only input
-- `ChatRequest.provider` — must be one of `{"gemini", "claude", "openai"}`, rejected otherwise
-- Verified: blank question → `422` with clear error message; invalid provider (`"chatgpt"`) → `422` with clear error message
-
-### 7.3 Basic API key auth ✅
-- `app/core/auth.py` — `verify_api_key()` checks an `X-API-Key` header against `API_KEY` in `.env`
-- Applied to `/chat` via `dependencies=[Depends(verify_api_key)]`
-- Verified: missing key → `401`; wrong key → `401`; correct key → request proceeds normally
-
-### 7.4 Rate limiting ✅
-- Added `slowapi` (FastAPI-native rate limiting library)
-- `/chat` limited to **10 requests/minute per IP address**
-- Verified with 11 back-to-back requests: first 10 returned `200`, 11th correctly returned `429 Too Many Requests`
-
----
-
-## What's next
-
-**Phase 8 — Frontend:** React chat UI (calls `/chat`), merge dashboard UI into the same frontend, diff viewer for agent edits.
-## Phase 8 — Frontend
-
-### 8.1 React chat UI ✅
-- `frontend/src/ChatView.jsx`
-- Calls `/chat` with the user's API key in the `X-API-Key` header
-- Shows a real conversation thread, each assistant reply tagged with its tier/model badge, latency, cache status, and the source code chunks it used
-- Enter-to-send, loading state, error banner for failed requests
-
-### 8.2 Dashboard merged into the same frontend ✅
-- Restructured `App.jsx` into a tabbed layout: Chat / Dashboard / Agent
-- Dashboard tab is the same stats view from Phase 2, now living alongside the chat interface instead of being a separate page
-- Verified live: 59 total requests, 50.8% cache hit rate, real per-question cost breakdown, all rendering correctly
-
-### 8.3 "View changes" / diff viewer for agent edits ✅
-- New backend endpoint: `POST /agent/fix` (`app/api/agent.py`) — wraps Phase 6's `fix_and_verify()`, returns the original code, the final code, and full test output
-- `frontend/src/AgentView.jsx` — a simple line-by-line diff (no external diff library, hand-rolled) showing removed lines in red, added lines in green, plus the full pytest output
-- **Verified end-to-end:** re-broke `buggy_math.py` on purpose, ran it through the Agent tab, watched it correctly diagnose and fix the bug in 1 attempt, with the diff clearly showing `return a - b` → `return a + b`
-
----
-
-## What's next
-
-**Phase 9 — Deployment:** Dockerfile for the app, docker-compose (app + Postgres), environment config for prod vs dev, deploy to a host.
-## Phase 9 — Deployment (in progress)
-
-### 9.1 Dockerfile ✅
-- Base image `python:3.11-slim`, installs `gcc` and `libpq-dev` (needed for `psycopg2` and `tree-sitter` to compile inside Linux), installs `requirements.txt`, copies the app in, runs `uvicorn` bound to `0.0.0.0` (not `127.0.0.1`, since a container needs to accept external connections)
-- Note: Notepad silently saved this as `Dockerfile.txt` on first attempt (Windows hides extensions by default) — had to rename with `ren Dockerfile.txt Dockerfile`
-
-### 9.2 docker-compose (app + Postgres) ✅
-- `docker-compose.yml` — two services: `db` (same `pgvector/pgvector:pg16` image as local dev, its own separate volume) and `app` (built from the Dockerfile)
-- `app` waits for `db`'s healthcheck before starting
-- Inside the compose network, the app connects to the database via the service name `db`, not `localhost` — containers on the same network address each other by service name
-
-### Environment config for prod vs dev ✅
-- `app/core/config.py`: `.env` values now only fill in environment variables that aren't **already** set, rather than unconditionally overwriting them — critical fix, since Docker Compose injects `DATABASE_URL` etc. as real environment variables, and the old code was silently overwriting them with the stale local `.env` values baked into the image
-- Added `ENVIRONMENT` variable (`development`/`production`), used to conditionally extend allowed CORS origins in `main.py`
-- `.dockerignore` added (`.env`, `venv/`, `__pycache__/`, `backups/`, `node_modules/`, `.git/`) so local secrets and dev artifacts never get copied into the image in the first place
-
-### Real bugs caught and fixed while testing this phase
-- **Env var override bug:** as above — `.env` was overriding real Docker-injected environment variables, causing the containerized app to try connecting to `localhost:5433` (your local dev Postgres) instead of `db:5432` (the containerized one). Fixed by making `.env` only fill in *missing* variables.
-- **Empty database on first compose run:** `docker-compose` creates a brand new, separate database volume from your local dev setup — so the `vector` extension and all tables had to be created fresh inside this container the same way they were originally created locally (`CREATE EXTENSION vector;`, then `python -m app.core.init_db`, then re-running the indexer to populate `code_chunks`)
-- **Verified fully working end-to-end inside Docker:** real `/chat` requests, correct tier routing, correct semantic retrieval pulling genuine source chunks — proving the whole system runs identically whether native or fully containerized
-
-### 9.3 Deploy to a host — not yet done
-Next session: pick a host (Railway, Render, or a VPS), and deploy.
-
----
-
-## What's next
-
-**Phase 9 (continued):** deploy to a real host.
-### 9.3 Deployed to a real host (Render) ✅
-
-**Database:** Render PostgreSQL (free tier, expires 30 days after creation — genuinely free, no card required, vs. Render's paid Postgres tiers starting at $6/month). `pgvector` extension enabled manually via `psql`, tables created via a one-off script pointed at the Render connection string.
-
-**Web service:** Deployed from the GitHub repo directly, using the existing `Dockerfile` — Render auto-detected Docker and built the same image tested locally with `docker compose`. Free instance tier (spins down after 15 min of inactivity, wakes on the next request).
-
-**Environment variables set on Render:**
-- `DATABASE_URL` — the database's **Internal** connection URL (private network between Render services, faster and free, vs. External which is for outside connections)
-- `GEMINI_API_KEY`
-- `API_KEY` — rotated to a new value after the original was shared in conversation; both local `.env` and Render updated to match
-- `ENVIRONMENT=production`
-
-**Verified fully live and working:**
-- Root endpoint (`GET /`) responding correctly from the public URL
-- `POST /chat` — real API key auth, real database connection, real Gemini call, correct tier routing, all running entirely on Render's infrastructure
-- Codebase re-indexed against the cloud database (51 chunks) via a one-off script — semantic retrieval confirmed working with real source chunks and grounded answers, matching local dev behavior exactly
-
-**Live URL:** `https://ai-coding-agent-7kbo.onrender.com`
-
-**Known limitation:** the free database expires 30 days after creation (~mid-October 2026) unless upgraded to a paid plan. Recreating it when that happens is quick: new free Postgres on Render → `CREATE EXTENSION vector;` → re-run `init_db` → re-run the indexer → update `DATABASE_URL` in the web service's environment variables.
-
----
-
-## Roadmap status
-
-**Phases 1–9 (the full core build) are now complete:**
-- ✅ Phase 1 — Foundation
-- ✅ Phase 2 — Cost/Token Dashboard
-- ✅ Phase 3 — Compression
-- ✅ Phase 4 — Caching
-- ✅ Phase 5 — Model Routing
-- ✅ Phase 6 — Agent Loop + Verification
-- ✅ Phase 7 — Reliability & Auth
-- ✅ Phase 8 — Frontend
-- ✅ Phase 9 — Deployment
-
-**Optional, for later:**
-- Phase 10 — VS Code Extension
-- Phase 11 — Custom Model (fine-tuning on usage logs)
-
-
-\*\*Phase 4 — Caching:\*\* wire the already-scaffolded `cache\_entries` table into `/chat`, then add semantic (near-duplicate) cache matching.
+\- Phase 11 -- Custom Model (fine-tuning on usage logs)
 
