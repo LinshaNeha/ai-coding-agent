@@ -1,3 +1,4 @@
+
 import time
 import logging
 from fastapi import FastAPI, Depends, Request, HTTPException
@@ -19,6 +20,10 @@ from app.api.agent import router as agent_router
 from app.services.compressor import compress_code
 from app.services.cache import get_cached_response, save_to_cache
 from app.services.classifier import get_model_for_question
+from app.services.token_counter import count_tokens
+from app.services.token_budget import apply_token_budget
+from app.services.reranker import rerank_chunks
+from app.services.code_aware import expand_with_callees
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ai_coding_agent")
@@ -37,6 +42,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 retriever = Retriever()
+
+TOKEN_BUDGET = 800          # max tokens allowed for the FINAL compressed context
+RETRIEVE_TOP_K = 12         # candidates pulled from pgvector before reranking
+RERANK_TOP_N = 6            # candidates kept after cross-encoder reranking
+MAX_CALLEE_CHUNKS = 3       # max extra chunks pulled in via code-aware expansion
 
 
 class ChatRequest(BaseModel):
@@ -105,12 +115,34 @@ def chat(request: Request, body: ChatRequest):
 
         tier, model_name = get_model_for_question(body.question)
 
-        chunks = retriever.retrieve(body.question, top_k=5)
+        # --- Stage 1: retrieve a larger candidate pool via bi-encoder similarity ---
+        chunks = retriever.retrieve(body.question, top_k=RETRIEVE_TOP_K)
 
-        context = "\n\n".join(
-            f"# {c['chunk_type']} {c['chunk_name']} ({c['file_path']}:{c['start_line']}-{c['end_line']})\n{compress_code(c['content'])}"
+        raw_context = "\n\n".join(
+            f"# {c['chunk_type']} {c['chunk_name']} ({c['file_path']}:{c['start_line']}-{c['end_line']})\n{c['content']}"
             for c in chunks
         )
+        raw_context_tokens = count_tokens(raw_context)
+
+        # --- Stage 2: rerank candidates with a cross-encoder, keep the best N ---
+        rerank_result = rerank_chunks(body.question, chunks, top_n=RERANK_TOP_N)
+        reranked_chunks = rerank_result["reranked_chunks"]
+
+        # --- Stage 3: code-aware expansion -- pull in callees not already selected ---
+        expansion_result = expand_with_callees(reranked_chunks, max_extra_chunks=MAX_CALLEE_CHUNKS)
+        expanded_chunks = expansion_result["expanded_chunks"]
+        added_callees = expansion_result["added_chunks"]
+
+        # --- Stage 4: apply token budget on the EXPANDED set (this is now the final gate) ---
+        budget_result = apply_token_budget(expanded_chunks, TOKEN_BUDGET)
+        final_chunks = budget_result["kept_chunks"]
+
+        # --- Stage 5: build final compressed context ---
+        context = "\n\n".join(
+            f"# {c['chunk_type']} {c['chunk_name']} ({c['file_path']}:{c['start_line']}-{c['end_line']})\n{compress_code(c['content'])}"
+            for c in final_chunks
+        )
+        compressed_context_tokens = count_tokens(context)
 
         prompt = f"""You are a coding assistant. Use the following code context to answer the question.
 
@@ -120,6 +152,22 @@ CONTEXT:
 QUESTION:
 {body.question}
 """
+
+        prompt_tokens_local = count_tokens(prompt)
+
+        logger.info(
+            "Pipeline for question '%s...': retrieved=%d -> reranked_to=%d -> +%d callees=%d expanded -> "
+            "budget_kept=%d final (raw_tokens=%d, final_tokens=%d, budget=%d)",
+            body.question[:50],
+            len(chunks),
+            len(reranked_chunks),
+            len(added_callees),
+            len(expanded_chunks),
+            len(final_chunks),
+            raw_context_tokens,
+            compressed_context_tokens,
+            TOKEN_BUDGET,
+        )
 
         llm = get_llm_client(body.provider, model=model_name)
         result = llm.generate(prompt)
@@ -147,11 +195,25 @@ QUESTION:
             "answer": result["text"],
             "sources": [
                 {"file_path": c["file_path"], "chunk_name": c["chunk_name"], "similarity": c["similarity"]}
-                for c in chunks
+                for c in final_chunks
             ],
             "latency_ms": latency_ms,
             "tier": tier,
             "model_used": model_name,
+            "token_usage": {
+                "raw_context_tokens": raw_context_tokens,
+                "raw_chunk_count": len(chunks),
+                "reranked_chunk_count": len(reranked_chunks),
+                "kept_after_budget_count": len(final_chunks),
+                "added_callee_count": len(added_callees),
+                "final_chunk_count": len(final_chunks),
+                "compressed_context_tokens": compressed_context_tokens,
+                "token_budget": TOKEN_BUDGET,
+                "over_budget_without_trim": budget_result["over_budget_without_trim"],
+                "prompt_tokens_local_estimate": prompt_tokens_local,
+                "actual_input_tokens": result["input_tokens"],
+                "actual_output_tokens": result["output_tokens"],
+            },
         }
 
     except HTTPException:

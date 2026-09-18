@@ -1,13 +1,42 @@
 {
-  "name": "vscode-extension",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "ai-coding-agent",
+  "displayName": "AI Coding Agent",
+  "description": "Ask questions about your codebase and apply AI-suggested fixes, right inside VS Code.",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "aiCodingAgent.askQuestion",
+        "title": "AI Coding Agent: Ask a Question"
+      },
+      {
+        "command": "aiCodingAgent.fixCurrentFile",
+        "title": "AI Coding Agent: Fix Current File"
+      }
+    ],
+    "configuration": {
+      "title": "AI Coding Agent",
+      "properties": {
+        "aiCodingAgent.apiUrl": {
+          "type": "string",
+          "default": "https://ai-coding-agent-7kbo.onrender.com",
+          "description": "Base URL of your AI Coding Agent backend."
+        },
+        "aiCodingAgent.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key for your AI Coding Agent backend (set in your .env as API_KEY)."
+        }
+      }
+    }
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs"
+  }
 }

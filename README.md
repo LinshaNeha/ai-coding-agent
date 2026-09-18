@@ -329,6 +329,45 @@ Notice the `sources` field -- you can see exactly which pieces of code the answe
 \*\*Optional, for later:\*\*
 
 \- Phase 10 -- VS Code Extension
+## Phase 10 -- VS Code Extension
+
+- **10.1** Extension scaffolded in vscode-extension/ (extension.js, package.json) -- registers an "AI Coding Agent" command, prompts for a question, and calls the deployed /chat endpoint
+
+- **10.2** Settings for Api Url (pre-filled with the Render deployment) and Api Key, stored via VS Code's own settings (no key hardcoded in source)
+
+- **10.3** Verified end to end in the Extension Development Host: command registers correctly, correctly errors when no API key is set, and after entering a key, returns real grounded answers with sources -- both a semantic-cache hit (~135ms) and a genuine live LLM call (~17s, correct tier/model routing) were confirmed
+
+## Phase 12 -- Adaptive Token Efficiency
+
+Motivation: Phases 1-9 already showed real cost reduction from retrieval + output constraints, compression, caching, and model routing (see Results Achieved above). Phase 12 goes further -- instead of always sending a fixed top-k of retrieved chunks, the pipeline now dynamically narrows and enriches context before it ever reaches the LLM, with every stage measured in tokens so the tradeoffs are visible rather than assumed.
+
+- **12.1** Explicit token counting at every pipeline stage (app/services/token_counter.py) -- uses tiktoken's cl100k_base encoding as a fast, free, local approximation. This does not exactly match Gemini's own tokenizer (the real billed counts still come from the LLM response itself), but it's consistent across every stage and every run, which is what's needed to compare raw vs. compressed vs. final prompt sizes, and to compare pipeline versions against each other.
+
+- **12.2** Token Budget Manager (app/services/token_budget.py) -- given a maximum token budget (currently 800), keeps chunks in similarity/relevance order and drops the lowest-ranked ones once the running total would exceed budget, always keeping at least one chunk. This replaced a fixed top_k=5 cutoff with a cutoff based on actual context size, which matters once retrieval, reranking, and code-aware expansion can all vary how much context comes back.
+
+- **12.3** Retrieval widened + cross-encoder reranking (app/services/reranker.py) -- retrieval now pulls a larger candidate pool (top_k=12, up from 5) via the existing pgvector bi-encoder search, then a cross-encoder (cross-encoder/ms-marco-MiniLM-L-6-v2, ~90MB, CPU-only, no external API call) re-scores the (question, chunk) pairs jointly and keeps the top 6. Cross-encoders are generally more accurate than bi-encoder cosine similarity alone because they can attend to the question and the code together, at the cost of being too slow to run over the whole codebase -- which is why it only reranks the smaller candidate pool rather than replacing retrieval entirely. An LLM-as-reranker approach was considered and deliberately rejected: it would add a second paid LLM call per request, working against the cost-efficiency goal of this whole phase.
+
+- **12.4** Code-aware context expansion (app/services/code_aware.py) -- after reranking, each kept chunk's content is scanned for function-call patterns; any called function that has its own indexed chunk (and isn't already selected) gets pulled in, up to a small cap, so questions like "what breaks if I rename X" can see the actual callees rather than just the chunk that was semantically closest to the question text. This is computed at query time by matching against existing chunk_name values already stored in code_chunks, rather than precomputing and storing a call graph at index time -- avoiding a schema change or a full re-index at the cost of a small amount of extra per-request computation.
+
+- **12.5 (bug found & fixed)** Initial implementation applied the token budget *before* code-aware expansion, so the callee chunks added in 12.4 could push the final context back over budget (observed: budget=800, but final compressed context measured 1149 tokens). Fixed by reordering the pipeline so the token budget is applied last, after expansion, making it the true final gate on what gets sent to the LLM. Verified afterward: a case that previously would have been ~2144 raw tokens across 12 chunks came down to 802 compressed tokens across 3 final chunks (reranked + 3 callees added, then budgeted) -- about a 63% reduction, while the answer remained grounded in real, correctly-identified source chunks.
+
+- **Pipeline order (current):** retrieve top 12 (pgvector) -> rerank to top 6 (cross-encoder) -> expand with up to 3 callees (code-aware) -> apply token budget of 800 (drops lowest-relevance chunks first) -> compress (existing compress_code) -> build prompt -> LLM call.
+
+- **Still to do:** LLMLingua-2 as an optional second-stage compressor if context is still large after the above (needs a feasibility check on Render's free tier, given it's an additional ML model); then a full ablation benchmark (baseline vs +budget vs +reranking vs +code-aware vs +LLMLingua-2) across a fixed 18-question eval set (eval/questions.json), comparing input/output tokens, cost, latency, and answer quality/groundedness at each stage.
+
+- **Gotcha:** sentence-transformers (needed for the cross-encoder) pulls in torch as a dependency, which is a much heavier install than anything used in Phases 1-9. Feasibility on Render's free tier (build time, memory) still needs to be confirmed after deployment.
+
+---
+
+## Roadmap status
+
+**Phases 1-10 are complete. Phase 12 (Adaptive Token Efficiency) is in progress -- token counting, budget management, reranking, and code-aware expansion are built and verified locally; LLMLingua-2 and the final benchmark are still to come.**
+
+**Optional, for later:**
+
+- Phase 11 -- Custom Model (fine-tuning on usage logs) -- deliberately deferred: not enough real usage volume yet to fine-tune on meaningfully, per project notes.
+
+- **Deployment status:** built and verified locally only (Docker Postgres) as of this writing -- not yet committed/pushed or deployed to Render. Next step is a commit + push, then confirming the sentence-transformers/torch dependency (needed for the cross-encoder reranker) builds successfully on Render's free tier, since it's a notably heavier install than anything used in Phases 1-9.
 
 \- Phase 11 -- Custom Model (fine-tuning on usage logs)
 

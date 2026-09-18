@@ -1,0 +1,111 @@
+{
+  "eval_set_version": "v1",
+  "notes": "Fixed question set for benchmarking Phase 7 token-efficiency changes. Run this same set at every stage (baseline, +budget, +reranking, +code-aware, +LLMLingua-2) so comparisons are apples-to-apples.",
+  "categories": {
+    "simple_lookup": [
+      {
+        "id": "s1",
+        "question": "What does the retriever do?",
+        "expected_primary_file": "app/services/retriever.py"
+      },
+      {
+        "id": "s2",
+        "question": "What does the compressor strip out?",
+        "expected_primary_file": "app/services/compressor.py"
+      },
+      {
+        "id": "s3",
+        "question": "What model is used for embeddings and how many dimensions does it produce?",
+        "expected_primary_file": "app/services/embedder.py"
+      },
+      {
+        "id": "s4",
+        "question": "What does the classifier use to decide between simple and complex tiers?",
+        "expected_primary_file": "app/services/classifier.py"
+      },
+      {
+        "id": "s5",
+        "question": "What tables does the app use in the database?",
+        "expected_primary_file": "app/models/"
+      }
+    ],
+    "multi_file_relational": [
+      {
+        "id": "m1",
+        "question": "What calls the retriever, and what does it do with the results afterward?",
+        "expected_primary_files": ["app/services/retriever.py", "app/api/chat.py or main chat endpoint"]
+      },
+      {
+        "id": "m2",
+        "question": "How does caching interact with model routing — does a cache hit skip the classifier?",
+        "expected_primary_files": ["app/services/cache.py", "app/services/classifier.py"]
+      },
+      {
+        "id": "m3",
+        "question": "Walk through the full lifecycle of a /chat request from receiving the question to returning the answer.",
+        "expected_primary_files": ["app/api/chat.py", "cache.py", "classifier.py", "retriever.py", "compressor.py", "llm_client.py"]
+      },
+      {
+        "id": "m4",
+        "question": "How does the semantic cache decide a question is similar enough to a past one to reuse the answer?",
+        "expected_primary_files": ["app/services/cache.py", "app/services/embedder.py"]
+      },
+      {
+        "id": "m5",
+        "question": "What happens if the LLM call fails partway through a request — how is the error handled and logged?",
+        "expected_primary_files": ["app/core/exception handling", "app/services/llm_client.py"]
+      }
+    ],
+    "broad_ambiguous": [
+      {
+        "id": "b1",
+        "question": "How does the app decide what code is relevant to a question?",
+        "note": "Broad — likely to pull in retriever, embedder, and possibly compressor/classifier. Good test for over-retrieval."
+      },
+      {
+        "id": "b2",
+        "question": "How does the system keep costs down?",
+        "note": "Very broad — should touch cache, compressor, classifier, pricing. Good stress test for token budget."
+      },
+      {
+        "id": "b3",
+        "question": "Explain the auth and rate limiting setup.",
+        "expected_primary_files": ["app/core/auth.py", "slowapi rate limiting"]
+      },
+      {
+        "id": "b4",
+        "question": "What is the weather today?",
+        "note": "Off-topic control question — should retrieve low-similarity chunks and the model should say it has no relevant info. Useful to confirm the budget/reranking stages don't force irrelevant context in just to fill the budget."
+      }
+    ],
+    "fix_loop_candidates": [
+      {
+        "id": "f1",
+        "question": "PLACEHOLDER: describe a known bug #1 here (e.g. a function returning wrong type, off-by-one, etc.)",
+        "note": "Fill in with a real, reproducible bug and its failing test so fix_loop.py can be exercised and 'tests passed' can be measured."
+      },
+      {
+        "id": "f2",
+        "question": "PLACEHOLDER: describe a known bug #2 here",
+        "note": "Same as above — ideally a different file/module than f1 to test breadth."
+      },
+      {
+        "id": "f3",
+        "question": "PLACEHOLDER: describe a known bug #3 here (optional, if you have one)",
+        "note": "Optional third fix-loop case."
+      }
+    ],
+    "code_aware_candidates": [
+      {
+        "id": "c1",
+        "question": "If I change the return format of retrieve() in the retriever, what else would break?",
+        "note": "Tests whether code-aware selection pulls in callers of retrieve(), not just retriever.py itself."
+      },
+      {
+        "id": "c2",
+        "question": "What functions does compress_code depend on or call?",
+        "note": "Tests call-graph awareness in the other direction (callees, not callers)."
+      }
+    ]
+  }
+}
