@@ -355,13 +355,12 @@ Motivation: Phases 1-9 already showed real cost reduction from retrieval + outpu
 
   **Evidence:** the cross-encoder was verified working correctly on local development --
 
-  ![Cross-encoder working locally](docs/screenshots/cross_encoder_local_success.png)
+  <img width="1087" height="318" alt="Screenshot 2026-09-18 144648" src="https://github.com/user-attachments/assets/71bf378b-6119-4b96-ac63-c33698747e6f" />
+
 
   *(sentence-transformers imports successfully, the model loads, and correctly ranks a `retrieve`-related chunk above an unrelated `compress_code` chunk for the question "what does the retriever do", with a real relevance score returned.)*
 
-  Deployment to Render failed after ~18 minutes with a port-binding timeout, confirming the constraint was infrastructure, not the technique:
-
-  ![Render deploy failure](docs/screenshots/render_deploy_failed_port_timeout.png)
+  Deployment to Render failed after ~18 minutes with a port-binding timeout, confirming the constraint was infrastructure, not the technique.
 
   *(Render's own build log: "Port scan timeout reached, no open ports detected" -- torch's import/startup overhead was too slow for the free tier's health check window.)*
 - **12.4** Code-aware context expansion (app/services/code_aware.py) -- after reranking, each kept chunk's content is scanned for function-call patterns; any called function that has its own indexed chunk (and isn't already selected) gets pulled in, up to a small cap, so questions like "what breaks if I rename X" can see the actual callees rather than just the chunk that was semantically closest to the question text. This is computed at query time by matching against existing chunk_name values already stored in code_chunks, rather than precomputing and storing a call graph at index time -- avoiding a schema change or a full re-index at the cost of a small amount of extra per-request computation.
@@ -377,6 +376,8 @@ Motivation: Phases 1-9 already showed real cost reduction from retrieval + outpu
 - **12.6** LLMLingua-2 -- evaluated as a local-only experiment (eval/llmlingua_experiment.py), not deployed. Deployment was ruled out up front: LLMLingua-2 requires an xlm-roberta-large-based model (~1.2GB) plus torch/transformers, the same class of dependency that had just failed to deploy on Render's free tier for the (much smaller, ~90MB) cross-encoder reranker in 12.3, which missed Render's port-binding timeout after ~18 minutes.
 
   Rather than stop at that prediction, LLMLingua-2 was still installed and run locally against the real, already-optimized pipeline output (post retrieval + rerank + code-aware expansion + token budget + compress_code) for 5 real questions against this codebase. Result: an average of **43.6% additional token reduction** on top of what the existing pipeline already achieved (e.g. one question's context went from 787 tokens post-pipeline down to 441 tokens after LLMLingua-2, a 44% further cut). This is real, measured evidence that meaningful additional compression is available -- it's a hosting constraint that rules it out here, not a limitation of the technique itself. Full results in eval/results/llmlingua_experiment.json.
+  <img width="1070" height="560" alt="Screenshot 2026-09-18 143514" src="https://github.com/user-attachments/assets/0cfaba5e-f2b9-4c7f-b2a4-d0f41e785051" />
+
 
   **Known limitation observed:** one question's context (1147 tokens) exceeded LLMLingua-2's underlying model's 512-token max sequence length, triggering a truncation warning -- that result should be treated as less reliable than the others, and a real deployment would need chunk-level (not whole-context) compression to avoid this.
 
