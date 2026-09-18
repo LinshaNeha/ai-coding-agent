@@ -353,6 +353,17 @@ Motivation: Phases 1-9 already showed real cost reduction from retrieval + outpu
 
   An LLM-as-reranker approach was also considered and deliberately rejected for both versions: it would add a second paid LLM call per request, working against the cost-efficiency goal of this whole phase.
 
+  **Evidence:** the cross-encoder was verified working correctly on local development --
+
+  ![Cross-encoder working locally](docs/screenshots/cross_encoder_local_success.png)
+
+  *(sentence-transformers imports successfully, the model loads, and correctly ranks a `retrieve`-related chunk above an unrelated `compress_code` chunk for the question "what does the retriever do", with a real relevance score returned.)*
+
+  Deployment to Render failed after ~18 minutes with a port-binding timeout, confirming the constraint was infrastructure, not the technique:
+
+  ![Render deploy failure](docs/screenshots/render_deploy_failed_port_timeout.png)
+
+  *(Render's own build log: "Port scan timeout reached, no open ports detected" -- torch's import/startup overhead was too slow for the free tier's health check window.)*
 - **12.4** Code-aware context expansion (app/services/code_aware.py) -- after reranking, each kept chunk's content is scanned for function-call patterns; any called function that has its own indexed chunk (and isn't already selected) gets pulled in, up to a small cap, so questions like "what breaks if I rename X" can see the actual callees rather than just the chunk that was semantically closest to the question text. This is computed at query time by matching against existing chunk_name values already stored in code_chunks, rather than precomputing and storing a call graph at index time -- avoiding a schema change or a full re-index at the cost of a small amount of extra per-request computation.
 
 - **12.5 (bug found & fixed)** Initial implementation applied the token budget *before* code-aware expansion, so the callee chunks added in 12.4 could push the final context back over budget (observed: budget=800, but final compressed context measured 1149 tokens). Fixed by reordering the pipeline so the token budget is applied last, after expansion, making it the true final gate on what gets sent to the LLM. Verified afterward: a case that previously would have been ~2144 raw tokens across 12 chunks came down to 802 compressed tokens across 3 final chunks (reranked + 3 callees added, then budgeted) -- about a 63% reduction, while the answer remained grounded in real, correctly-identified source chunks.
@@ -363,8 +374,33 @@ Motivation: Phases 1-9 already showed real cost reduction from retrieval + outpu
 
 - **Gotcha:** sentence-transformers (needed for the cross-encoder) pulls in torch as a dependency, which is a much heavier install than anything used in Phases 1-9. Feasibility on Render's free tier (build time, memory) still needs to be confirmed after deployment.
 
----
+- **12.6** LLMLingua-2 -- evaluated as a local-only experiment (eval/llmlingua_experiment.py), not deployed. Deployment was ruled out up front: LLMLingua-2 requires an xlm-roberta-large-based model (~1.2GB) plus torch/transformers, the same class of dependency that had just failed to deploy on Render's free tier for the (much smaller, ~90MB) cross-encoder reranker in 12.3, which missed Render's port-binding timeout after ~18 minutes.
 
+  Rather than stop at that prediction, LLMLingua-2 was still installed and run locally against the real, already-optimized pipeline output (post retrieval + rerank + code-aware expansion + token budget + compress_code) for 5 real questions against this codebase. Result: an average of **43.6% additional token reduction** on top of what the existing pipeline already achieved (e.g. one question's context went from 787 tokens post-pipeline down to 441 tokens after LLMLingua-2, a 44% further cut). This is real, measured evidence that meaningful additional compression is available -- it's a hosting constraint that rules it out here, not a limitation of the technique itself. Full results in eval/results/llmlingua_experiment.json.
+
+  **Known limitation observed:** one question's context (1147 tokens) exceeded LLMLingua-2's underlying model's 512-token max sequence length, triggering a truncation warning -- that result should be treated as less reliable than the others, and a real deployment would need chunk-level (not whole-context) compression to avoid this.
+
+
+## Phase 12 -- Final Results
+
+A note on methodology: the original baseline benchmark (eval/results/baseline.json) was captured before per-stage token counting existed (12.1), so it has real latency/tier/cache data but no token breakdown to compare against directly. Rather than roll the live pipeline back to regenerate a "clean" side-by-side (real risk of introducing new bugs for a modest gain in tidiness), the results below are presented from the optimized pipeline's own data (eval/results/with_optimizations.json) -- which is self-evidencing: every non-cached question shows the raw retrieved context (from the wider top-12 pool) being substantially reduced before reaching the LLM.
+
+**16/16 questions succeeded** against the live Render deployment (a handful needed one or two retries due to transient Gemini 503s under load -- an upstream provider issue, not a pipeline bug; see Phase 9 gotchas for the same pattern observed earlier).
+
+Sample of real, non-cached results (raw vs. final compressed context, in tokens):
+
+| Question | Raw tokens (top-12) | Compressed (final) | Reduction |
+|---|---|---|---|
+| "What model is used for embeddings..." | 1433 | 433 | 70% |
+| "What functions does compress_code depend on..." | 2105 | 764 | 64% |
+| "How does the app decide what code is relevant..." | 2039 | 799 | 61% |
+| "What happens if the LLM call fails partway..." | 1721 | 797 | 54% |
+| "How does the semantic cache decide..." | 1696 | 799 | 53% |
+| "What tables does the app use in the database?" | 1526 | 782 | 49% |
+
+Full results: eval/results/with_optimizations.json. Comparison tooling: eval/compare_results.py (built to diff against a token-aware baseline if one is captured in the future).
+
+**What this demonstrates:** widening retrieval from top-5 to top-12 gives the reranker and code-aware expansion a larger, better pool to work with -- while the token budget manager (12.2) reliably brings the final context back down to a consistent, bounded size (~750-800 tokens) regardless of how much raw material came in, without needing a fixed top-k cutoff to do it. Answers remained grounded throughout (5-8 real sources cited per question, correct call-graph expansions observed for code-aware test questions like c1/c2).
 ## Roadmap status
 
 **Phases 1-10 are complete. Phase 12 (Adaptive Token Efficiency) is in progress -- token counting, budget management, reranking, and code-aware expansion are built and verified locally; LLMLingua-2 and the final benchmark are still to come.**

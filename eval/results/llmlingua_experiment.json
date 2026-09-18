@@ -1,0 +1,40 @@
+{
+  "note": "LOCAL EXPERIMENT ONLY -- not deployed, see README",
+  "results": [
+    {
+      "id": "s1",
+      "question": "What does the retriever do?",
+      "pre_llmlingua_tokens": 787,
+      "post_llmlingua_tokens": 441,
+      "additional_reduction_pct": 43.96
+    },
+    {
+      "id": "s2",
+      "question": "What does the compressor strip out?",
+      "pre_llmlingua_tokens": 514,
+      "post_llmlingua_tokens": 301,
+      "additional_reduction_pct": 41.44
+    },
+    {
+      "id": "s3",
+      "question": "What model is used for embeddings and how many dimensions does it produce?",
+      "pre_llmlingua_tokens": 589,
+      "post_llmlingua_tokens": 337,
+      "additional_reduction_pct": 42.78
+    },
+    {
+      "id": "s4",
+      "question": "What does the classifier use to decide between simple and complex tiers?",
+      "pre_llmlingua_tokens": 759,
+      "post_llmlingua_tokens": 431,
+      "additional_reduction_pct": 43.21
+    },
+    {
+      "id": "s5",
+      "question": "What tables does the app use in the database?",
+      "pre_llmlingua_tokens": 647,
+      "post_llmlingua_tokens": 345,
+      "additional_reduction_pct": 46.68
+    }
+  ]
+}

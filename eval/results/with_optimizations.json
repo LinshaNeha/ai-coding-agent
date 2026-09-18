@@ -1,0 +1,931 @@
+{
+  "stage_name": "with_optimizations",
+  "api_url": "https://ai-coding-agent-7kbo.onrender.com/chat",
+  "total_questions": 16,
+  "successful": 16,
+  "failed": 0,
+  "cached_hits": 1,
+  "results": [
+    {
+      "id": "s1",
+      "category": "simple_lookup",
+      "question": "What does the retriever do?",
+      "ok": true,
+      "measured_latency_ms": 72356,
+      "reported_latency_ms": 39321,
+      "tier": "simple",
+      "model_used": "gemini-3.1-flash-lite",
+      "cached": false,
+      "num_sources": 8,
+      "sources": [
+        {
+          "file_path": "app\\services\\retriever.py",
+          "chunk_name": "Retriever",
+          "similarity": 0.5922290616240282
+        },
+        {
+          "file_path": "app\\services\\retriever.py",
+          "chunk_name": "__init__",
+          "similarity": 0.6290421485900879
+        },
+        {
+          "file_path": "app\\services\\indexer.py",
+          "chunk_name": "__init__",
+          "similarity": 0.5778552638206054
+        },
+        {
+          "file_path": "app\\services\\file_tools.py",
+          "chunk_name": "read_file",
+          "similarity": 0.5510569153956315
+        },
+        {
+          "file_path": "app\\services\\embedder.py",
+          "chunk_name": "Embedder",
+          "similarity": 0.5405074905744245
+        },
+        {
+          "file_path": "app\\services\\llm_client.py",
+          "chunk_name": "__init__",
+          "similarity": 0.5377688958920402
+        },
+        {
+          "file_path": "app\\services\\embedder.py",
+          "chunk_name": "embed_text",
+          "similarity": 0.0
+        },
+        {
+          "file_path": "app\\services\\embedder.py",
+          "chunk_name": "embed_chunks",
+          "similarity": 0.0
+        }
+      ],
+      "answer_length_chars": 1073,
+      "answer": "The `Retriever` class is responsible for finding code chunks that are semantically similar to a given query. Here is how it performs this task:\n\n1.  **Embedding the Query:** It uses an `Embedder` instance to convert the input `query` string into a numerical vector (embedding).\n2.  **Database Querying:** It opens a database session and performs a similarity search against the `CodeChunk` table. It specifically calculates the **cosine distance** between the query's embedding and the stored embeddings of the code chunks.\n3.  **Ranking:** It orders the results by the smallest cosine distance (the most similar chunks) and limits the result set to the specified `top_k`.\n4.  **Formatting:** It processes the database results and returns a list of dictionaries. Each dictionary contains metadata about the chunk (file path, type, name, content, line numbers) and a `similarity` score, which is calculated as `1 - distance` to convert the cosine distance into a similarity metric. \n5.  **Cleanup:** It ensures the database session is closed after the operation is complete.",
+      "token_usage": {
+        "raw_context_tokens": 874,
+        "raw_chunk_count": 12,
+        "reranked_chunk_count": 6,
+        "kept_after_budget_count": 8,
+        "added_callee_count": 3,
+        "final_chunk_count": 8,
+        "compressed_context_tokens": 729,
+        "token_budget": 800,
+        "over_budget_without_trim": true,
+        "prompt_tokens_local_estimate": 757,
+        "actual_input_tokens": 921,
+        "actual_output_tokens": 233
+      }
+    },
+    {
+      "id": "s2",
+      "category": "simple_lookup",
+      "question": "What does the compressor strip out?",
+      "ok": true,
+      "measured_latency_ms": 32628,
+      "reported_latency_ms": 32002,
+      "tier": "simple",
+      "model_used": "gemini-3.1-flash-lite",
+      "cached": false,
+      "num_sources": 7,
+      "sources": [
+        {
+          "file_path": "app\\services\\compressor.py",
+          "chunk_name": "compress_code",
+          "similarity": 0.587563462177212
+        },
+        {
+          "file_path": "app\\services\\fix_loop.py",
+          "chunk_name": "extract_code_block",
+          "similarity": 0.5362725810679735
+        },
+        {
+          "file_path": "app\\services\\cache.py",
+          "chunk_name": "hash_query",
+          "similarity": 0.5311423819576359
+        },
+        {
+          "file_path": "app\\services\\retriever.py",
+          "chunk_name": "__init__",
+          "similarity": 0.5506866513864257
+        },
+        {
+          "file_path": "app\\services\\indexer.py",
+          "chunk_name": "__init__",
+          "similarity": 0.5181208540129235
+        },
+        {
+          "file_path": "app\\services\\llm_client.py",
+          "chunk_name": "generate",
+          "similarity": 0.49919551610948076
+        },
+        {
+          "file_path": "app\\services\\embedder.py",
+          "chunk_name": "Embedder",
+          "similarity": 0.0
+        }
+      ],
+      "answer_length_chars": 547,
+      "answer": "Based on the provided code in `app/services/compressor.py`, the `compress_code` function strips out the following:\n\n*   **Trailing whitespace:** Removes whitespace from the end of each line.\n*   **Consecutive blank lines:** Collapses multiple consecutive blank lines into a single blank line.\n*   **Full-line comments:** Removes lines that consist entirely of a comment (lines where the first non-whitespace character is `#`).\n\nThe function is intentionally designed not to modify inline comments or text inside strings to preserve code semantics.",
+      "token_usage": {
+        "raw_context_tokens": 823,
+        "raw_chunk_count": 12,
+        "reranked_chunk_count": 6,
+        "kept_after_budget_count": 7,
+        "added_callee_count": 1,
+        "final_chunk_count": 7,
+        "compressed_context_tokens": 618,
+        "token_budget": 800,
+        "over_budget_without_trim": false,
+        "prompt_tokens_local_estimate": 646,
+        "actual_input_tokens": 774,
+        "actual_output_tokens": 114
+      }
+    },
+    {
+      "id": "s3",
+      "category": "simple_lookup",
+      "question": "What model is used for embeddings and how many dimensions does it produce?",
+      "ok": true,
+      "measured_latency_ms": 21664,
+      "reported_latency_ms": 21034,
+      "tier": "simple",
+      "model_used": "gemini-3.1-flash-lite",
+      "cached": false,
+      "num_sources": 6,
+      "sources": [
+        {
+          "file_path": "app\\services\\embedder.py",
+          "chunk_name": "embed_text",
+          "similarity": 0.659387727361552
+        },
+        {
+          "file_path": "app\\services\\embedder.py",
+          "chunk_name": "Embedder",
+          "similarity": 0.6365233090648147
+        },
+        {
+          "file_path": "app\\services\\retriever.py",
+          "chunk_name": "__init__",
+          "similarity": 0.6690529188231507
+        },
+        {
+          "file_path": "app\\services\\llm_client.py",
+          "chunk_name": "__init__",
+          "similarity": 0.5789820034222068
+        },
+        {
+          "file_path": "app\\services\\embedder.py",
+          "chunk_name": "embed_chunks",
+          "similarity": 0.6041212261951338
+        },
+        {
+          "file_path": "app\\services\\llm_client.py",
+          "chunk_name": "__init__",
+          "similarity": 0.5668173601274898
+        }
+      ],
+      "answer_length_chars": 459,
+      "answer": "Based on the provided code, here is the information regarding the embedding model:\n\n*   **Model:** The code uses a variable named `EMBEDDING_MODEL` to define which model is used in the `embed_text` function (located in `app\\services\\embedder.py`).\n*   **Dimensions:** The provided context **does not specify the number of dimensions** produced by the model. It only shows that the function returns a `list[float]` extracted from `result.embeddings[0].values`.",
+      "token_usage": {
+        "raw_context_tokens": 1433,
+        "raw_chunk_count": 12,
+        "reranked_chunk_count": 6,
+        "kept_after_budget_count": 6,
+        "added_callee_count": 0,
+        "final_chunk_count": 6,
+        "compressed_context_tokens": 433,
+        "token_budget": 800,
+        "over_budget_without_trim": false,
+        "prompt_tokens_local_estimate": 468,
+        "actual_input_tokens": 556,
+        "actual_output_tokens": 108
+      }
+    },
+    {
+      "id": "s4",
+      "category": "simple_lookup",
+      "question": "What does the classifier use to decide between simple and complex tiers?",
+      "ok": true,
+      "measured_latency_ms": 36509,
+      "reported_latency_ms": 35326,
+      "tier": "simple",
+      "model_used": "gemini-3.1-flash-lite",
+      "cached": false,
+      "num_sources": 7,
+      "sources": [
+        {
+          "file_path": "app\\services\\classifier.py",
+          "chunk_name": "classify_difficulty",
+          "similarity": 0.6728058852909388
+        },
+        {
+          "file_path": "app\\services\\classifier.py",
+          "chunk_name": "get_model_for_question",
+          "similarity": 0.6475115225460812
+        },
+        {
+          "file_path": "app\\services\\retriever.py",
+          "chunk_name": "__init__",
+          "similarity": 0.5599433088251948
+        },
+        {
+          "file_path": "app\\services\\indexer.py",
+          "chunk_name": "_walk",
+          "similarity": 0.5556195610194746
+        },
+        {
+          "file_path": "app\\services\\indexer.py",
+          "chunk_name": "__init__",
+          "similarity": 0.5419060799339536
+        },
+        {
+          "file_path": "app\\services\\embedder.py",
+          "chunk_name": "Embedder",
+          "similarity": 0.0
+        },
+        {
+          "file_path": "app\\services\\indexer.py",
+          "chunk_name": "index_file",
+          "similarity": 0.0
+        }
+      ],
+      "answer_length_chars": 639,
+      "answer": "The `classify_difficulty` function determines the difficulty tier using the following criteria:\n\n1.  **Keywords:** It checks if the question contains any keywords from the `COMPLEX_KEYWORDS` list (resulting in \"complex\") or the `SIMPLE_KEYWORDS` list.\n2.  **Word Count:** It calculates the word count of the question and applies the following rules:\n    *   **Simple:** If the question contains a simple keyword and is 12 words or fewer.\n    *   **Simple:** If the question is 6 words or fewer.\n    *   **Complex:** If the question is 15 words or more.\n    *   **Default:** If none of the above conditions are met, it defaults to \"simple\".",
+      "token_usage": {
+        "raw_context_tokens": 1481,
+        "raw_chunk_count": 12,
+        "reranked_chunk_count": 6,
+        "kept_after_budget_count": 7,
+        "added_callee_count": 3,
+        "final_chunk_count": 7,
+        "compressed_context_tokens": 761,
+        "token_budget": 800,
+        "over_budget_without_trim": true,
+        "prompt_tokens_local_estimate": 795,
+        "actual_input_tokens": 982,
+        "actual_output_tokens": 157
+      }
+    },
+    {
+      "id": "s5",
+      "category": "simple_lookup",
+      "question": "What tables does the app use in the database?",
+      "ok": true,
+      "measured_latency_ms": 14005,
+      "reported_latency_ms": 13326,
+      "tier": "simple",
+      "model_used": "gemini-3.1-flash-lite",
+      "cached": false,
+      "num_sources": 5,
+      "sources": [
+        {
+          "file_path": "app\\core\\init_db.py",
+          "chunk_name": "init_db",
+          "similarity": 0.6378571010913204
+        },
+        {
+          "file_path": "app\\api\\stats.py",
+          "chunk_name": "get_stats",
+          "similarity": 0.59645492988288
+        },
+        {
+          "file_path": "app\\models\\code_chunk.py",
+          "chunk_name": "CodeChunk",
+          "similarity": 0.5937432050704956
+        },
+        {
+          "file_path": "app\\models\\cache_entry.py",
+          "chunk_name": "CacheEntry",
+          "similarity": 0.5909598957348036
+        },
+        {
+          "file_path": "app\\models\\request_log.py",
+          "chunk_name": "RequestLog",
+          "similarity": 0.5894159078598022
+        }
+      ],
+      "answer_length_chars": 534,
+      "answer": "Based on the provided code context, the application uses the following three tables:\n\n1.  **`code_chunks`** (defined by the `CodeChunk` class): Stores information related to code segments, including file paths, content, and vector embeddings.\n2.  **`cache_entries`** (defined by the `CacheEntry` class): Stores cached query results, including hashes, responses, and vector embeddings.\n3.  **`request_logs`** (defined by the `RequestLog` class): Stores logs of API requests, including latency, token usage, costs, and cache hit status.",
+      "token_usage": {
+        "raw_context_tokens": 1526,
+        "raw_chunk_count": 12,
+        "reranked_chunk_count": 6,
+        "kept_after_budget_count": 5,
+        "added_callee_count": 0,
+        "final_chunk_count": 5,
+        "compressed_context_tokens": 782,
+        "token_budget": 800,
+        "over_budget_without_trim": true,
+        "prompt_tokens_local_estimate": 812,
+        "actual_input_tokens": 1087,
+        "actual_output_tokens": 128
+      }
+    },
+    {
+      "id": "m1",
+      "category": "multi_file_relational",
+      "question": "What calls the retriever, and what does it do with the results afterward?",
+      "ok": true,
+      "measured_latency_ms": 1083,
+      "reported_latency_ms": 266,
+      "tier": null,
+      "model_used": null,
+      "cached": true,
+      "num_sources": 0,
+      "sources": [],
+      "answer_length_chars": 1073,
+      "answer": "The `Retriever` class is responsible for finding code chunks that are semantically similar to a given query. Here is how it performs this task:\n\n1.  **Embedding the Query:** It uses an `Embedder` instance to convert the input `query` string into a numerical vector (embedding).\n2.  **Database Querying:** It opens a database session and performs a similarity search against the `CodeChunk` table. It specifically calculates the **cosine distance** between the query's embedding and the stored embeddings of the code chunks.\n3.  **Ranking:** It orders the results by the smallest cosine distance (the most similar chunks) and limits the result set to the specified `top_k`.\n4.  **Formatting:** It processes the database results and returns a list of dictionaries. Each dictionary contains metadata about the chunk (file path, type, name, content, line numbers) and a `similarity` score, which is calculated as `1 - distance` to convert the cosine distance into a similarity metric. \n5.  **Cleanup:** It ensures the database session is closed after the operation is complete.",
+      "token_usage": null
+    },
+    {
+      "id": "m2",
+      "category": "multi_file_relational",
+      "question": "How does caching interact with model routing \u2014 does a cache hit skip the classifier?",
+      "ok": true,
+      "measured_latency_ms": 9302,
+      "reported_latency_ms": 8224,
+      "tier": "complex",
+      "model_used": "gemini-3.6-flash",
+      "cached": false,
+      "num_sources": 6,
+      "sources": [
+        {
+          "file_path": "app\\services\\cache.py",
+          "chunk_name": "get_cached_response",
+          "similarity": 0.633824787507965
+        },
+        {
+          "file_path": "app\\services\\cache.py",
+          "chunk_name": "save_to_cache",
+          "similarity": 0.5978143215179443
+        },
+        {
+          "file_path": "app\\models\\cache_entry.py",
+          "chunk_name": "CacheEntry",
+          "similarity": 0.6268564907483514
+        },
+        {
+          "file_path": "app\\services\\llm_client.py",
+          "chunk_name": "__init__",
+          "similarity": 0.5735714943919825
+        },
+        {
+          "file_path": "app\\services\\llm_client.py",
+          "chunk_name": "__init__",
+          "similarity": 0.5659399628639221
+        },
+        {
+          "file_path": "app\\services\\cache.py",
+          "chunk_name": "hash_query",
+          "similarity": 0.0
+        }
+      ],
+      "answer_length_chars": 982,
+      "answer": "Based on the provided context, **yes, a cache hit skips model routing/classification**.\n\nHere is how it works in `get_cached_response`:\n\n1. **Exact Match Check:** It first checks if an exact hash of the normalized query (`hash_query`) exists in the database. If found, it updates hit metrics and **immediately returns `entry.response_text`**.\n2. **Semantic Match Check:** If an exact match isn't found, it generates an embedding (`embedder.embed_text`) and calculates cosine similarity. If the closest match meets or exceeds `SEMANTIC_SIMILARITY_THRESHOLD`, it updates hit metrics and **immediately returns `entry.response_text`**.\n\nBecause `get_cached_response` returns the pre-stored string as soon as a cache hit occurs, any subsequent pipeline steps \u2014 such as running a query classifier or routing to a specific LLM (e.g., `claude-sonnet-4-6` or `gpt-4o`) \u2014 are entirely bypassed. Model routing/classification only happens if `get_cached_response` returns `None` (a cache miss).",
+      "token_usage": {
+        "raw_context_tokens": 1332,
+        "raw_chunk_count": 12,
+        "reranked_chunk_count": 6,
+        "kept_after_budget_count": 6,
+        "added_callee_count": 2,
+        "final_chunk_count": 6,
+        "compressed_context_tokens": 802,
+        "token_budget": 800,
+        "over_budget_without_trim": true,
+        "prompt_tokens_local_estimate": 838,
+        "actual_input_tokens": 1065,
+        "actual_output_tokens": 239
+      }
+    },
+    {
+      "id": "m3",
+      "category": "multi_file_relational",
+      "question": "Walk through the full lifecycle of a /chat request from receiving the question to returning the answer.",
+      "ok": true,
+      "measured_latency_ms": 11612,
+      "reported_latency_ms": 11014,
+      "tier": "complex",
+      "model_used": "gemini-3.6-flash",
+      "cached": false,
+      "num_sources": 7,
+      "sources": [
+        {
+          "file_path": "app\\api\\agent.py",
+          "chunk_name": "trigger_fix",
+          "similarity": 0.6137246950000889
+        },
+        {
+          "file_path": "app\\services\\llm_client.py",
+          "chunk_name": "generate",
+          "similarity": 0.6283106582350032
+        },
+        {
+          "file_path": "app\\models\\request_log.py",
+          "chunk_name": "RequestLog",
+          "similarity": 0.5913891439801975
+        },
+        {
+          "file_path": "app\\services\\llm_client.py",
+          "chunk_name": "generate",
+          "similarity": 0.6197635758064057
+        },
+        {
+          "file_path": "app\\services\\llm_client.py",
+          "chunk_name": "generate",
+          "similarity": 0.6125129096202319
+        },
+        {
+          "file_path": "app\\services\\llm_client.py",
+          "chunk_name": "generate",
+          "similarity": 0.6099463701248212
+        },
+        {
+          "file_path": "app\\services\\file_tools.py",
+          "chunk_name": "read_file",
+          "similarity": 0.0
+        }
+      ],
+      "answer_length_chars": 1780,
+      "answer": "Based on the provided context, here is the full lifecycle of a `/chat` request:\n\n---\n\n### 1. **Request Ingestion**\n* The endpoint receives a request containing the user's **`question`**.\n* Initial timing starts to calculate total **`latency_ms`**.\n\n---\n\n### 2. **LLM Generation (`llm_client.py`)**\n* The request handler calls `generate(prompt)` on the active LLM client implementation (`app/services/llm_client.py`):\n  * **Gemini Client**:\n    * Calls `self.client.models.generate_content(model=self.model, contents=prompt)`.\n    * Extracts the generated response text (`response.text`).\n    * Extracts token metadata from `response.usage_metadata`:\n      * `input_tokens` $\\leftarrow$ `prompt_token_count`\n      * `output_tokens` $\\leftarrow$ `candidates_token_count`\n  * **Claude / OpenAI Clients**:\n    * Currently raise `NotImplementedError` if invoked.\n\n---\n\n### 3. **Logging & Metrics (`RequestLog` model)**\n* A new `RequestLog` entry (`app/models/request_log.py`) is created to track execution metrics:\n  * **`endpoint`**: Recorded as `\"/chat\"`\n  * **`question`**: Stores the user's input question\n  * **`model_used`**: Name of the model invoked\n  * **`input_tokens` & `output_tokens`**: Metrics returned from `generate()`\n  * **`cost_usd`**: Calculated based on model pricing and token counts\n  * **`latency_ms`**: Total execution duration in milliseconds\n  * **`cache_hit`**: Boolean flag indicating whether the response was served from cache\n  * **`status`**: Set to `\"success\"` (or an error status if execution failed)\n  * **`timestamp`**: Automatically set by the database server (`server_default=func.now()`)\n\n---\n\n### 4. **Returning the Response**\n* The generated text response is returned to the client along with any required metadata (e.g., status, usage tokens).",
+      "token_usage": {
+        "raw_context_tokens": 1274,
+        "raw_chunk_count": 12,
+        "reranked_chunk_count": 6,
+        "kept_after_budget_count": 7,
+        "added_callee_count": 2,
+        "final_chunk_count": 7,
+        "compressed_context_tokens": 576,
+        "token_budget": 800,
+        "over_budget_without_trim": true,
+        "prompt_tokens_local_estimate": 615,
+        "actual_input_tokens": 777,
+        "actual_output_tokens": 479
+      }
+    },
+    {
+      "id": "m4",
+      "category": "multi_file_relational",
+      "question": "How does the semantic cache decide a question is similar enough to a past one to reuse the answer?",
+      "ok": true,
+      "measured_latency_ms": 6532,
+      "reported_latency_ms": 5457,
+      "tier": "complex",
+      "model_used": "gemini-3.6-flash",
+      "cached": false,
+      "num_sources": 4,
+      "sources": [
+        {
+          "file_path": "app\\services\\cache.py",
+          "chunk_name": "get_cached_response",
+          "similarity": 0.695363205394947
+        },
+        {
+          "file_path": "app\\services\\cache.py",
+          "chunk_name": "save_to_cache",
+          "similarity": 0.6127546564048163
+        },
+        {
+          "file_path": "app\\services\\cache.py",
+          "chunk_name": "hash_query",
+          "similarity": 0.5846422764019279
+        },
+        {
+          "file_path": "app\\services\\retriever.py",
+          "chunk_name": "retrieve",
+          "similarity": 0.590338805706777
+        }
+      ],
+      "answer_length_chars": 1099,
+      "answer": "Based on the provided code in `app/services/cache.py` (`get_cached_response`), the semantic cache decides if a question is similar enough using the following steps:\n\n1. **Generates an Embedding**: It converts the incoming `query_text` into a vector embedding using `embedder.embed_text(query_text)`.\n2. **Finds the Closest Entry by Cosine Distance**: It queries the database for stored cache entries and orders them by cosine distance to the new query's embedding (`CacheEntry.embedding.cosine_distance(query_embedding)`), retrieving the closest match.\n3. **Calculates Similarity**: It converts the cosine distance into cosine similarity using the formula:\n   $$\\text{similarity} = 1 - \\text{distance}$$\n4. **Compares Against a Threshold**: It checks whether the calculated similarity meets or exceeds a predefined threshold:\n   ```python\n   if similarity >= SEMANTIC_SIMILARITY_THRESHOLD:\n   ```\nIf `similarity >= SEMANTIC_SIMILARITY_THRESHOLD`, the semantic cache considers the question a match, updates the entry's `hit_count` and `last_used_at` timestamp, and returns the cached `response_text`.",
+      "token_usage": {
+        "raw_context_tokens": 1696,
+        "raw_chunk_count": 12,
+        "reranked_chunk_count": 6,
+        "kept_after_budget_count": 4,
+        "added_callee_count": 2,
+        "final_chunk_count": 4,
+        "compressed_context_tokens": 799,
+        "token_budget": 800,
+        "over_budget_without_trim": true,
+        "prompt_tokens_local_estimate": 839,
+        "actual_input_tokens": 1070,
+        "actual_output_tokens": 261
+      }
+    },
+    {
+      "id": "m5",
+      "category": "multi_file_relational",
+      "question": "What happens if the LLM call fails partway through a request \u2014 how is the error handled and logged?",
+      "ok": true,
+      "measured_latency_ms": 7212,
+      "reported_latency_ms": 6102,
+      "tier": "complex",
+      "model_used": "gemini-3.6-flash",
+      "cached": false,
+      "num_sources": 3,
+      "sources": [
+        {
+          "file_path": "app\\services\\fix_loop.py",
+          "chunk_name": "fix_and_verify",
+          "similarity": 0.6227595991718874
+        },
+        {
+          "file_path": "app\\api\\stats.py",
+          "chunk_name": "get_stats",
+          "similarity": 0.5982795357704332
+        },
+        {
+          "file_path": "app\\api\\agent.py",
+          "chunk_name": "trigger_fix",
+          "similarity": 0.5896961826629322
+        }
+      ],
+      "answer_length_chars": 867,
+      "answer": "Based on the provided code context:\n\n1. **In `fix_and_verify` / `trigger_fix`:**\n   * **Unhandled Exceptions:** The call `llm.generate(prompt)` in `fix_and_verify` is executed directly inside the attempt loop without any `try...except` block. If the LLM call fails or raises an exception partway through, the exception will interrupt the execution loop and propagate up unhandled through `fix_and_verify` and `trigger_fix`.\n\n2. **In `get_stats`:**\n   * **Logging/Tracking:** The database model `RequestLog` tracks requests with a `status == \"error\"` column (`db.query(func.count(RequestLog.id)).filter(RequestLog.status == \"error\")`). This indicates that request errors are tracked in the database and counted toward the `errors` metric in system stats, though the specific logging middleware or wrapper catching these exceptions is outside the provided code context.",
+      "token_usage": {
+        "raw_context_tokens": 1721,
+        "raw_chunk_count": 12,
+        "reranked_chunk_count": 6,
+        "kept_after_budget_count": 3,
+        "added_callee_count": 3,
+        "final_chunk_count": 3,
+        "compressed_context_tokens": 797,
+        "token_budget": 800,
+        "over_budget_without_trim": true,
+        "prompt_tokens_local_estimate": 839,
+        "actual_input_tokens": 1082,
+        "actual_output_tokens": 208
+      }
+    },
+    {
+      "id": "b1",
+      "category": "broad_ambiguous",
+      "question": "How does the app decide what code is relevant to a question?",
+      "ok": true,
+      "measured_latency_ms": 5494,
+      "reported_latency_ms": 4910,
+      "tier": "complex",
+      "model_used": "gemini-3.6-flash",
+      "cached": false,
+      "num_sources": 5,
+      "sources": [
+        {
+          "file_path": "app\\services\\retriever.py",
+          "chunk_name": "Retriever",
+          "similarity": 0.6023475412751808
+        },
+        {
+          "file_path": "app\\services\\classifier.py",
+          "chunk_name": "get_model_for_question",
+          "similarity": 0.6002612531107421
+        },
+        {
+          "file_path": "app\\services\\cache.py",
+          "chunk_name": "get_cached_response",
+          "similarity": 0.5945972381412226
+        },
+        {
+          "file_path": "app\\services\\fix_loop.py",
+          "chunk_name": "extract_code_block",
+          "similarity": 0.5912596515947293
+        },
+        {
+          "file_path": "app\\services\\cache.py",
+          "chunk_name": "hash_query",
+          "similarity": 0.0
+        }
+      ],
+      "answer_length_chars": 981,
+      "answer": "Based on the provided context, the app determines which code is relevant to a question using semantic vector search via the **`Retriever`** class (`app/services/retriever.py`):\n\n1. **Query Embedding**: The user's question (`query`) is converted into a vector embedding using `embedder.embed_text(query)`.\n2. **Cosine Distance Comparison**: The app queries the database (`CodeChunk` table) and computes the **cosine distance** between the question's embedding and the pre-computed embeddings of stored code chunks (`CodeChunk.embedding`).\n3. **Ordering and Selection**: Results are ordered by cosine distance in ascending order (closest/most semantically similar code chunks first) and limited to the top matching records (`top_k`, default is 5).\n4. **Similarity Score**: The app converts the distance into a similarity score (`1 - distance`) and returns the most relevant code chunks along with metadata such as `file_path`, `chunk_type`, `chunk_name`, line numbers, and `content`.",
+      "token_usage": {
+        "raw_context_tokens": 2039,
+        "raw_chunk_count": 12,
+        "reranked_chunk_count": 6,
+        "kept_after_budget_count": 5,
+        "added_callee_count": 3,
+        "final_chunk_count": 5,
+        "compressed_context_tokens": 799,
+        "token_budget": 800,
+        "over_budget_without_trim": true,
+        "prompt_tokens_local_estimate": 832,
+        "actual_input_tokens": 1046,
+        "actual_output_tokens": 221
+      }
+    },
+    {
+      "id": "b2",
+      "category": "broad_ambiguous",
+      "question": "How does the system keep costs down?",
+      "ok": true,
+      "measured_latency_ms": 9042,
+      "reported_latency_ms": 7956,
+      "tier": "complex",
+      "model_used": "gemini-3.6-flash",
+      "cached": false,
+      "num_sources": 7,
+      "sources": [
+        {
+          "file_path": "app\\services\\pricing.py",
+          "chunk_name": "calculate_cost",
+          "similarity": 0.5739118544950352
+        },
+        {
+          "file_path": "app\\services\\retriever.py",
+          "chunk_name": "__init__",
+          "similarity": 0.5625917911529541
+        },
+        {
+          "file_path": "app\\services\\llm_client.py",
+          "chunk_name": "__init__",
+          "similarity": 0.5447185039520264
+        },
+        {
+          "file_path": "app\\services\\llm_client.py",
+          "chunk_name": "__init__",
+          "similarity": 0.5247361034469519
+        },
+        {
+          "file_path": "app\\services\\indexer.py",
+          "chunk_name": "__init__",
+          "similarity": 0.5241074874465169
+        },
+        {
+          "file_path": "app\\core\\database.py",
+          "chunk_name": "get_db",
+          "similarity": 0.511010854780028
+        },
+        {
+          "file_path": "app\\services\\embedder.py",
+          "chunk_name": "Embedder",
+          "similarity": 0.0
+        }
+      ],
+      "answer_length_chars": 896,
+      "answer": "Based on the provided context, there is no explicit cost-optimization strategy (such as caching or prompt compression) shown in the code snippets. However, the system manages costs and resources in the following ways:\n\n1. **Cost Tracking (`app/services/pricing.py`):**\n   The `calculate_cost` function tracks token usage precisely based on input and output tokens per 1,000,000 tokens for specific models (`rates[\"input\"]` and `rates[\"output\"]`), rounded to 8 decimal places.\n\n2. **Resource Cleanup (`app/core/database.py`):**\n   The `get_db` context generator ensures database connections are closed (`db.close()`) in a `finally` block after each use, preventing resource leaks.\n\n3. **Chunk-level Embedding (`app/services/embedder.py`):**\n   The `Embedder` handles text in chunks (`embed_chunks`), allowing embedding generation at the chunk level rather than processing entire documents at once.",
+      "token_usage": {
+        "raw_context_tokens": 1023,
+        "raw_chunk_count": 12,
+        "reranked_chunk_count": 6,
+        "kept_after_budget_count": 7,
+        "added_callee_count": 1,
+        "final_chunk_count": 7,
+        "compressed_context_tokens": 448,
+        "token_budget": 800,
+        "over_budget_without_trim": false,
+        "prompt_tokens_local_estimate": 477,
+        "actual_input_tokens": 578,
+        "actual_output_tokens": 214
+      }
+    },
+    {
+      "id": "b3",
+      "category": "broad_ambiguous",
+      "question": "Explain the auth and rate limiting setup.",
+      "ok": true,
+      "measured_latency_ms": 7546,
+      "reported_latency_ms": 6942,
+      "tier": "complex",
+      "model_used": "gemini-3.6-flash",
+      "cached": false,
+      "num_sources": 7,
+      "sources": [
+        {
+          "file_path": "app\\core\\auth.py",
+          "chunk_name": "verify_api_key",
+          "similarity": 0.5894064834183315
+        },
+        {
+          "file_path": "app\\services\\embedder.py",
+          "chunk_name": "__init__",
+          "similarity": 0.601381880003767
+        },
+        {
+          "file_path": "app\\services\\llm_client.py",
+          "chunk_name": "__init__",
+          "similarity": 0.5828159972562811
+        },
+        {
+          "file_path": "app\\services\\retriever.py",
+          "chunk_name": "__init__",
+          "similarity": 0.5714386020396913
+        },
+        {
+          "file_path": "app\\services\\llm_client.py",
+          "chunk_name": "__init__",
+          "similarity": 0.571338909010265
+        },
+        {
+          "file_path": "app\\api\\stats.py",
+          "chunk_name": "get_stats",
+          "similarity": 0.568708717255623
+        },
+        {
+          "file_path": "app\\services\\embedder.py",
+          "chunk_name": "Embedder",
+          "similarity": 0.0
+        }
+      ],
+      "answer_length_chars": 1203,
+      "answer": "Based on the provided context, here is the breakdown of the **authentication** and **rate-limiting** setup:\n\n---\n\n### 1. Authentication Setup\n\nAuthentication is handled at two levels:\n\n#### **A. Incoming API Requests (`app/core/auth.py`)**\n* **Dependency:** The `verify_api_key` function acts as a FastAPI route dependency that inspects the request header for `X-API-Key` (`x_api_key: str = Header(None)`).\n* **Validation Logic:**\n  * If `API_KEY` is configured:\n    * It checks if the header value (`x_api_key`) matches `API_KEY`.\n    * If missing or incorrect, it raises an `HTTPException(status_code=401, detail=\"Invalid or missing API key\")`.\n  * If `API_KEY` is not set (falsy), the check is bypassed, allowing requests to pass through without header validation.\n\n#### **B. External Service Integration (`app/services/embedder.py` & `llm_client.py`)**\n* Services connecting to Google Gemini (e.g., `Embedder` and LLM clients) authenticate against Google's API by passing `api_key=GEMINI_API_KEY` to `genai.Client()`.\n\n---\n\n### 2. Rate Limiting Setup\n\n* **No Rate-Limiting Implementation:** There is no rate-limiting logic, middleware, or configuration defined anywhere in the provided code context.",
+      "token_usage": {
+        "raw_context_tokens": 987,
+        "raw_chunk_count": 12,
+        "reranked_chunk_count": 6,
+        "kept_after_budget_count": 7,
+        "added_callee_count": 1,
+        "final_chunk_count": 7,
+        "compressed_context_tokens": 728,
+        "token_budget": 800,
+        "over_budget_without_trim": false,
+        "prompt_tokens_local_estimate": 758,
+        "actual_input_tokens": 968,
+        "actual_output_tokens": 327
+      }
+    },
+    {
+      "id": "b4",
+      "category": "broad_ambiguous",
+      "question": "What is the weather today?",
+      "ok": true,
+      "measured_latency_ms": 4722,
+      "reported_latency_ms": 3071,
+      "tier": "simple",
+      "model_used": "gemini-3.1-flash-lite",
+      "cached": false,
+      "num_sources": 6,
+      "sources": [
+        {
+          "file_path": "app\\services\\llm_client.py",
+          "chunk_name": "generate",
+          "similarity": 0.5265040429239324
+        },
+        {
+          "file_path": "app\\services\\llm_client.py",
+          "chunk_name": "generate",
+          "similarity": 0.5211178374956759
+        },
+        {
+          "file_path": "app\\services\\llm_client.py",
+          "chunk_name": "generate",
+          "similarity": 0.5189213488557376
+        },
+        {
+          "file_path": "app\\services\\llm_client.py",
+          "chunk_name": "generate",
+          "similarity": 0.510358125588783
+        },
+        {
+          "file_path": "app\\services\\file_tools.py",
+          "chunk_name": "read_file",
+          "similarity": 0.5037296114129141
+        },
+        {
+          "file_path": "app\\services\\embedder.py",
+          "chunk_name": "__init__",
+          "similarity": 0.5013221203492888
+        }
+      ],
+      "answer_length_chars": 276,
+      "answer": "The provided code context does not contain any information or functions related to weather, external APIs, or environmental data. It only contains definitions for LLM generation clients and a file reading utility. Therefore, I cannot answer the question regarding the weather.",
+      "token_usage": {
+        "raw_context_tokens": 708,
+        "raw_chunk_count": 12,
+        "reranked_chunk_count": 6,
+        "kept_after_budget_count": 6,
+        "added_callee_count": 0,
+        "final_chunk_count": 6,
+        "compressed_context_tokens": 345,
+        "token_budget": 800,
+        "over_budget_without_trim": false,
+        "prompt_tokens_local_estimate": 371,
+        "actual_input_tokens": 455,
+        "actual_output_tokens": 48
+      }
+    },
+    {
+      "id": "c1",
+      "category": "code_aware_candidates",
+      "question": "If I change the return format of retrieve() in the retriever, what else would break?",
+      "ok": true,
+      "measured_latency_ms": 7067,
+      "reported_latency_ms": 6435,
+      "tier": "complex",
+      "model_used": "gemini-3.6-flash",
+      "cached": false,
+      "num_sources": 7,
+      "sources": [
+        {
+          "file_path": "app\\services\\retriever.py",
+          "chunk_name": "Retriever",
+          "similarity": 0.628273878734392
+        },
+        {
+          "file_path": "app\\services\\retriever.py",
+          "chunk_name": "retrieve",
+          "similarity": 0.5945654559719047
+        },
+        {
+          "file_path": "app\\services\\retriever.py",
+          "chunk_name": "__init__",
+          "similarity": 0.6184260021702064
+        },
+        {
+          "file_path": "app\\api\\agent.py",
+          "chunk_name": "trigger_fix",
+          "similarity": 0.5827888846397441
+        },
+        {
+          "file_path": "app\\services\\llm_client.py",
+          "chunk_name": "generate",
+          "similarity": 0.5997187614105656
+        },
+        {
+          "file_path": "app\\services\\cache.py",
+          "chunk_name": "hash_query",
+          "similarity": 0.0
+        },
+        {
+          "file_path": "app\\services\\embedder.py",
+          "chunk_name": "embed_text",
+          "similarity": 0.0
+        }
+      ],
+      "answer_length_chars": 872,
+      "answer": "Based on the provided context, **no functions in the given code snippets directly call `Retriever.retrieve()`**. \n\nHowever, changing the return format of `retrieve()` would break any downstream code (such as RAG agents, API endpoints, or prompt builders) that consumes its output. Specifically, callers rely on:\n\n1. **Return Type**: Expecting a list of dictionaries (`list[dict]`).\n2. **Dictionary Keys**: Any code accessing the specific key-value structure currently returned:\n   - `\"file_path\"`\n   - `\"chunk_type\"`\n   - `\"chunk_name\"`\n   - `\"content\"`\n   - `\"start_line\"`\n   - `\"end_line\"`\n   - `\"similarity\"` (calculated as `1 - distance`)\n\nIf you change the return type or rename/remove any of these keys, any external service or caller attempting to access `chunk[\"content\"]`, `chunk[\"file_path\"]`, `chunk[\"similarity\"]`, etc., will raise a `KeyError` or `TypeError`.",
+      "token_usage": {
+        "raw_context_tokens": 1375,
+        "raw_chunk_count": 12,
+        "reranked_chunk_count": 6,
+        "kept_after_budget_count": 7,
+        "added_callee_count": 3,
+        "final_chunk_count": 7,
+        "compressed_context_tokens": 795,
+        "token_budget": 800,
+        "over_budget_without_trim": true,
+        "prompt_tokens_local_estimate": 835,
+        "actual_input_tokens": 1062,
+        "actual_output_tokens": 220
+      }
+    },
+    {
+      "id": "c2",
+      "category": "code_aware_candidates",
+      "question": "What functions does compress_code depend on or call?",
+      "ok": true,
+      "measured_latency_ms": 2933,
+      "reported_latency_ms": 2198,
+      "tier": "simple",
+      "model_used": "gemini-3.1-flash-lite",
+      "cached": false,
+      "num_sources": 6,
+      "sources": [
+        {
+          "file_path": "app\\services\\compressor.py",
+          "chunk_name": "compress_code",
+          "similarity": 0.6612176303967046
+        },
+        {
+          "file_path": "app\\services\\indexer.py",
+          "chunk_name": "_walk",
+          "similarity": 0.5992737651304242
+        },
+        {
+          "file_path": "app\\services\\indexer.py",
+          "chunk_name": "__init__",
+          "similarity": 0.5948903802102673
+        },
+        {
+          "file_path": "app\\api\\agent.py",
+          "chunk_name": "trigger_fix",
+          "similarity": 0.5840821413846966
+        },
+        {
+          "file_path": "app\\services\\retriever.py",
+          "chunk_name": "__init__",
+          "similarity": 0.5779012944816041
+        },
+        {
+          "file_path": "app\\services\\embedder.py",
+          "chunk_name": "Embedder",
+          "similarity": 0.0
+        }
+      ],
+      "answer_length_chars": 282,
+      "answer": "Based on the provided code context, the `compress_code` function does not call any other functions defined in the provided snippets. It operates entirely using standard Python built-in string and list methods (such as `split`, `rstrip`, `strip`, `startswith`, `append`, and `join`).",
+      "token_usage": {
+        "raw_context_tokens": 2105,
+        "raw_chunk_count": 12,
+        "reranked_chunk_count": 6,
+        "kept_after_budget_count": 6,
+        "added_callee_count": 3,
+        "final_chunk_count": 6,
+        "compressed_context_tokens": 764,
+        "token_budget": 800,
+        "over_budget_without_trim": true,
+        "prompt_tokens_local_estimate": 795,
+        "actual_input_tokens": 983,
+        "actual_output_tokens": 61
+      }
+    }
+  ]
+}
