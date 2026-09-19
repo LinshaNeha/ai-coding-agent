@@ -20,7 +20,7 @@ import time
 import urllib.request
 import urllib.error
 
-API_URL = "https://ai-coding-agent-7kbo.onrender.com/chat"
+API_URL = (Render URL available on request)
 ENV_PATH = ".env"
 QUESTIONS_PATH = os.path.join("eval", "questions.json")
 RESULTS_DIR = os.path.join("eval", "results")
