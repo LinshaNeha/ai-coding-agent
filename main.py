@@ -35,6 +35,7 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.include_router(agent_router)
+app.include_router(stats_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
