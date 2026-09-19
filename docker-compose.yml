@@ -19,7 +19,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql://postgres:devpassword@db:5432/ai_coding_agent
+      DATABASE_URL: "postgresql url"
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       API_KEY: ${API_KEY}
     depends_on:
