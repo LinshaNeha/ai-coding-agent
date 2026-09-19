@@ -6,7 +6,7 @@ Built a working AI coding assistant that answers questions about a codebase usin
 
 **Status:** All core phases complete. Fully deployed, fully tested end to end.
 
-**Live URL:** https://ai-coding-agent-7kbo.onrender.com
+**Live URL:** (Render URL available on request)
 
 ---
 
@@ -14,9 +14,9 @@ Built a working AI coding assistant that answers questions about a codebase usin
 
 Here's a real request/response cycle, showing exactly what happens end to end.
 
-**You send:**
+**send:**
 
-curl -X POST https://ai-coding-agent-7kbo.onrender.com/chat
+curl -X POST (Render URL) /chat \
 -H "Content-Type: application/json"
 -H "X-API-Key: your-api-key"
 -d '{"question": "How does the semantic cache work?"}'
@@ -74,7 +74,7 @@ Notice the `sources` field -- you can see exactly which pieces of code the answe
 ## Phase 1 -- Foundation
 
 - **1.1** Project structure, FastAPI skeleton
-- **1.2** PostgreSQL + pgvector, via official Docker image `pgvector/pgvector:pg16` (avoided third-party Windows binaries and Visual Studio Build Tools)
+- **1.2** PostgreSQL + pgvector, via official Docker image `pgvector/pgvector:pg16` 
 - **1.3** DB models: `request_logs`, `cache_entries`, `code_chunks` (SQLAlchemy, in `app/core/database.py` and `app/models/`)
 - **1.4** Swappable LLM client (`app/services/llm_client.py`) -- Gemini live, Claude/OpenAI stubbed behind the same interface
 - **1.5** Tree-sitter AST indexer (`app/services/indexer.py`) -- parses Python into function/class chunks, not arbitrary line splits
@@ -277,17 +277,6 @@ Full results: `eval/results/with_optimizations.json`. Comparison tooling: `eval/
 
 - **13.8 (known gap, not yet fixed)** Retrieval doesn't reliably surface `main.py` or `app/services/fix_loop.py` for questions like "list the API endpoints" or "how does the fix loop work" -- the model correctly declines to hallucinate an answer in both cases (citing only the weakly-related chunks it did retrieve), but this suggests either these files aren't being picked up by the indexer's file-walk, or their embeddings score poorly against these phrasings. Worth checking `app/services/index_pipeline.py`'s file discovery logic and/or re-indexing to confirm scope. Not yet investigated further.
 
----
-
-## Key setup notes / gotchas hit along the way
-
-- **PATH issues on Windows:** `setx` truncates PATH at 1024 characters and can silently break other tools. Prefer the GUI environment variable editor for permanent changes.
-- **pgvector on native Windows Postgres** was avoided entirely -- no official Windows binary exists, and building from source needs Visual Studio Build Tools. Used the official Docker image instead.
-- **`python-dotenv` was intentionally removed** in favor of a small hand-written `.env` parser using only Python's built-in `os` and `pathlib`.
-- **Embedding model changed** from the originally planned `text-embedding-004` (768-dim, not available on this account) to `gemini-embedding-001` (3072-dim). The `code_chunks.embedding` column reflects this.
-- **Docker Compose env var override bug:** `.env` was unconditionally overwriting real environment variables Docker injected, causing the containerized app to try connecting to the wrong database. Fixed by making `.env` only fill in variables that aren't already set.
-- **Render's free Postgres expires after 30 days** (unlike the app hosting itself, which stays free indefinitely). Fine for a portfolio project; just needs periodic recreation.
-- **API key rotation:** the original `API_KEY` value was shared in conversation and treated as compromised -- rotated to a new value across both local `.env` and the Render deployment.
 
 ---
 
@@ -298,7 +287,7 @@ Full results: `eval/results/with_optimizations.json`. Comparison tooling: `eval/
 - **Run server locally:** `uvicorn main:app --reload` (from project root, venv active)
 - **Run everything via Docker Compose:** `docker compose up --build`
 - **Re-index codebase:** `python -m app.services.index_pipeline`
-- **Live deployment:** https://ai-coding-agent-7kbo.onrender.com
+- **Live deployment:** (Render URL available on request)
 
 ---
 
