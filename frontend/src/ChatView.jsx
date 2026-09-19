@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import ReactMarkdown from 'react-markdown'
 
 const API_BASE = 'http://127.0.0.1:8000'
 
@@ -73,13 +74,23 @@ function ChatView() {
       </div>
 
       <div className="messages">
-        {messages.length === 0 && (
-          <p className="empty-state">Ask a question about your codebase to get started.</p>
+                {messages.length === 0 && (
+          <div className="empty-state">
+            <div className="empty-state-icon">{'</>'}</div>
+            <div className="empty-state-title">Ask about your codebase</div>
+            <div className="empty-state-sub">Questions are answered using real, retrieved source code — not guesses.</div>
+          </div>
         )}
         {messages.map((m, i) => (
           <div key={i} className={`message ${m.role}`}>
             <div className="message-role">{m.role === 'user' ? 'You' : 'Assistant'}</div>
-            <div className="message-text">{m.text}</div>
+            <div className="message-text">
+ 		 {m.role === 'assistant' ? (
+   			 <ReactMarkdown>{m.text}</ReactMarkdown>
+ 	     ) : (
+   		 m.text
+ 	     )}
+ 		</div>
             {m.role === 'assistant' && (
               <div className="message-meta">
                 {m.cached && <span className="badge badge-cached">cached</span>}
@@ -97,8 +108,16 @@ function ChatView() {
               </div>
             )}
           </div>
-        ))}
-        {loading && <div className="message assistant"><div className="message-role">Assistant</div><div className="message-text">Thinking...</div></div>}
+        ))}{loading && (
+  <div className="message assistant">
+    <div className="message-role">Assistant</div>
+    <div className="thinking-dots">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+  </div>
+)}
         {error && <div className="error-banner">Error: {error}</div>}
       </div>
 

@@ -59,8 +59,12 @@ function AgentView() {
 
   const diff = result ? diffLines(result.original_code, result.final_code) : []
 
-  return (
+    return (
     <div className="agent-container">
+      <div className="agent-intro">
+        Point this at a file in your codebase. The agent reads it, runs the matching tests, and if any fail, it diagnoses the failure, writes a patch, and re-runs the tests to confirm the fix — up to 3 attempts. A timestamped backup is saved before any file is changed.
+      </div>
+
       <div className="agent-form">
         <input
           type="password"

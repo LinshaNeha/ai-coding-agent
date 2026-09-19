@@ -35,68 +35,92 @@ function App() {
   }, [tab])
 
   return (
-    <div className="container">
-      <div className="tabs">
-        <button className={tab === 'chat' ? 'tab active' : 'tab'} onClick={() => setTab('chat')}>
-          Chat
-        </button>
-        <button className={tab === 'dashboard' ? 'tab active' : 'tab'} onClick={() => setTab('dashboard')}>
-          Dashboard
-        </button>
-        <button className={tab === 'agent' ? 'tab active' : 'tab'} onClick={() => setTab('agent')}>
-          Agent
-        </button>
+    <div className="shell">
+      <div className="header">
+                <div className="brand">
+          <div className="brand-mark" />
+          <div className="brand-text">
+            <span className="brand-name">AI Coding Agent</span>
+            <span className="brand-sub">codebase Q&A</span>
+          </div>
+        </div>
+        <div className="tabs">
+          <button className={tab === 'chat' ? 'tab active' : 'tab'} onClick={() => setTab('chat')}>
+            Chat
+          </button>
+          <button className={tab === 'dashboard' ? 'tab active' : 'tab'} onClick={() => setTab('dashboard')}>
+            Dashboard
+          </button>
+          <button className={tab === 'agent' ? 'tab active' : 'tab'} onClick={() => setTab('agent')}>
+            Agent
+          </button>
+        </div>
       </div>
 
-      {tab === 'chat' && <ChatView />}
-      {tab === 'agent' && <AgentView />}
-      {tab === 'dashboard' && (
-        <>
-          {loading && <p>Loading...</p>}
-          {error && <p>Error: {error}. Is the backend running on port 8000?</p>}
-          {stats && (
-            <>
-              <div className="stats-grid">
-                <StatCard label="Total Requests" value={stats.total_requests} />
-                <StatCard label="Total Cost" value={`$${stats.total_cost_usd}`} />
-                <StatCard label="Avg Latency" value={`${stats.avg_latency_ms} ms`} />
-                <StatCard label="Input Tokens" value={stats.total_input_tokens} />
-                <StatCard label="Output Tokens" value={stats.total_output_tokens} />
-                <StatCard label="Cache Hit Rate" value={`${stats.cache_hit_rate_pct}%`} />
-                <StatCard label="Errors" value={stats.errors} />
-              </div>
+      <div className="content">
+        {tab === 'chat' && <ChatView />}
+        {tab === 'agent' && <AgentView />}
+        {tab === 'dashboard' && (
+          <>
+            {loading && <p>Loading...</p>}
+            {error && <p>Error: {error}. Is the backend running on port 8000?</p>}
+            {stats && (
+              <>
+                <p className="dash-heading">Overview</p>
+                <div className="hero-stats">
+                  <div className="hero-card is-primary">
+                    <div className="hero-label">Total cost</div>
+                    <div className="hero-value">${stats.total_cost_usd}</div>
+                  </div>
+                  <div className="hero-card">
+                    <div className="hero-label">Total requests</div>
+                    <div className="hero-value">{stats.total_requests}</div>
+                  </div>
+                  <div className="hero-card">
+                    <div className="hero-label">Errors</div>
+                    <div className={`hero-value ${stats.errors > 0 ? 'error-tone' : ''}`}>{stats.errors}</div>
+                  </div>
+                </div>
 
-              <h2>Recent Requests</h2>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Question</th>
-                    <th>Model</th>
-                    <th>Input</th>
-                    <th>Output</th>
-                    <th>Cost</th>
-                    <th>Latency</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {questions.map((q) => (
-                    <tr key={q.id} className={q.status === 'error' ? 'row-error' : ''}>
-                      <td className="question-cell">{q.question}</td>
-                      <td>{q.model_used}</td>
-                      <td>{q.input_tokens}</td>
-                      <td>{q.output_tokens}</td>
-                      <td>${q.cost_usd}</td>
-                      <td>{q.latency_ms} ms</td>
-                      <td>{q.status}</td>
+                <div className="stats-grid">
+                  <StatCard label="Avg latency" value={`${stats.avg_latency_ms} ms`} />
+                  <StatCard label="Input tokens" value={stats.total_input_tokens} />
+                  <StatCard label="Output tokens" value={stats.total_output_tokens} />
+                  <StatCard label="Cache hit rate" value={`${stats.cache_hit_rate_pct}%`} />
+                </div>
+
+                <p className="dash-heading" style={{ marginTop: '28px' }}>Recent Requests</p>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Question</th>
+                      <th>Model</th>
+                      <th>Input</th>
+                      <th>Output</th>
+                      <th>Cost</th>
+                      <th>Latency</th>
+                      <th>Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
-          )}
-        </>
-      )}
+                  </thead>
+                  <tbody>
+                    {questions.map((q) => (
+                      <tr key={q.id} className={q.status === 'error' ? 'row-error' : ''}>
+                        <td className="question-cell">{q.question}</td>
+                        <td>{q.model_used}</td>
+                        <td>{q.input_tokens}</td>
+                        <td>{q.output_tokens}</td>
+                        <td>${q.cost_usd}</td>
+                        <td>{q.latency_ms} ms</td>
+                        <td>{q.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
+          </>
+        )}
+      </div>
     </div>
   )
 }
