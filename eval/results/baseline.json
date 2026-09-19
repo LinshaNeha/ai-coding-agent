@@ -1,6 +1,6 @@
 {
   "stage_name": "baseline",
-  "api_url": "https://ai-coding-agent-7kbo.onrender.com/chat",
+  "api_url": "",
   "total_questions": 16,
   "successful": 16,
   "failed": 0,
