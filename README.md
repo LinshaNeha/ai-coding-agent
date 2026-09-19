@@ -403,7 +403,29 @@ Full results: eval/results/with_optimizations.json. Comparison tooling: eval/com
 
 **What this demonstrates:** widening retrieval from top-5 to top-12 gives the reranker and code-aware expansion a larger, better pool to work with -- while the token budget manager (12.2) reliably brings the final context back down to a consistent, bounded size (~750-800 tokens) regardless of how much raw material came in, without needing a fixed top-k cutoff to do it. Answers remained grounded throughout (5-8 real sources cited per question, correct call-graph expansions observed for code-aware test questions like c1/c2).
 ## Roadmap status
+## Phase 13 -- Dashboard Bugfix + Frontend Redesign
 
+- **13.1 (bug found & fixed)** `GET /stats` and `GET /stats/by-question` were returning 404 despite being correctly implemented in `app/api/stats.py`. Root cause: `stats_router` was imported in `main.py` but never passed to `app.include_router()` -- only `agent_router` had been registered. One-line fix (`app.include_router(stats_router)`); verified via `/docs` listing both routes and the Dashboard tab populating with real data (requests, cost, tokens, cache hit rate, recent requests table).
+
+- **13.2** Full visual redesign of the frontend (`frontend/src/App.css` rewritten, `App.jsx`/`ChatView.jsx`/`AgentView.jsx` updated to match): a consistent design system -- CSS custom-property color tokens (near-black background, single accent blue, status colors for success/error), IBM Plex Sans for UI text and IBM Plex Mono for all code/data values (file paths, token counts, costs, latency), a consistent spacing scale, and real visual hierarchy on the Dashboard (a primary "hero" cost card distinct from secondary stat cards, instead of seven equally-weighted boxes).
+
+- **13.3** Markdown rendering added to the Chat tab via `react-markdown` -- assistant responses previously rendered raw `###`/`**`/numbered-list syntax as plain text; now render as real headings, bold text, lists, and inline code chips.
+
+- **13.4** Fonts self-hosted via `@fontsource/ibm-plex-sans` and `@fontsource/ibm-plex-mono` (bundled at build time) instead of a Google Fonts CDN link, so the app makes zero third-party network calls for its visual assets -- everything needed to render the UI ships in the app's own build.
+
+- **13.5** Added a designed empty state for Chat (icon + title + subtitle instead of a single floating sentence), a pulsing thinking-dots loading indicator (replacing static "Thinking..." text), an intro block on the Agent tab explaining what the fix-loop does before any file is submitted, a custom SVG favicon, and a proper page title.
+
+- **13.6 (bug found & fixed)** Leftover Vite-scaffold CSS (`text-align: center` on `#root` in `src/index.css`, from the original project template) was centering all app text app-wide -- chat message paragraphs, dashboard labels, everything -- instead of the intended natural left alignment. Removed the unused scaffold rules (`text-align: center`, fixed `width: 1126px`, `border-inline`), keeping only the flex/min-height layout rules that were actually needed.
+
+- **13.7** End-to-end functional verification against the local dev environment, all 6 core flows confirmed working:
+  - Cold chat request -- grounded answer, correct sources, correct tier/model badge
+  - Cache hit -- repeat question returned in ~93ms vs ~13.5s on first ask, `cached: true`
+  - Model routing -- simple questions correctly routed to `gemini-3.1-flash-lite`, explanatory/complex questions to `gemini-3.6-flash`
+  - Off-topic grounding -- an unrelated question ("what's the weather today") correctly returned no hallucinated answer, citing only weakly-relevant retrieved chunks
+  - Agent fix-loop -- `app/services/buggy_math.py` and its test suite were expanded from 1 function/test to 4, with a deliberately injected off-by-one bug (`factorial`'s loop range). The agent correctly isolated the bug to the one broken function, left the three working functions untouched, generated a correct one-line patch, and re-ran the full test suite (11/11 passing) to confirm the fix -- with a timestamped `.bak` backup created before the edit, as designed in Phase 6.4
+  - Rate limiting -- 12 rapid requests against `/chat` returned 10x `200` followed by 2x `429`, confirming the `10/minute` `slowapi` limit fires exactly as configured
+
+- **13.8 (known gap, not yet fixed)** Retrieval doesn't reliably surface `main.py` or `app/services/fix_loop.py` for questions like "list the API endpoints" or "how does the fix loop work" -- the model correctly declines to hallucinate an answer in both cases (citing only the weakly-related chunks it did retrieve), but this suggests either these files aren't being picked up by the indexer's file-walk, or their embeddings score poorly against these phrasings. Worth checking `app/services/index_pipeline.py`'s file discovery logic and/or re-indexing to confirm scope. Not yet investigated further.
 **Phases 1-10 are complete. Phase 12 (Adaptive Token Efficiency) is in progress -- token counting, budget management, reranking, and code-aware expansion are built and verified locally; LLMLingua-2 and the final benchmark are still to come.**
 
 **Optional, for later:**
