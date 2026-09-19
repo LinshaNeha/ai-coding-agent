@@ -429,6 +429,55 @@ Full results: eval/results/with_optimizations.json. Comparison tooling: eval/com
 **Phases 1-10 are complete. Phase 12 (Adaptive Token Efficiency) is in progress -- token counting, budget management, reranking, and code-aware expansion are built and verified locally; LLMLingua-2 and the final benchmark are still to come.**
 
 **Optional, for later:**
+Full visual redesign of the frontend...
+
+
+<img width="1357" height="808" alt="image" src="https://github.com/user-attachments/assets/924e2f2d-7df8-4f1f-9a6f-c5cbc0dd0c1f" />
+
+
+
+
+
+<img width="1372" height="816" alt="Screenshot 2026-09-19 163558" src="https://github.com/user-attachments/assets/f9037f5c-0020-441e-81a0-df891a9b2ab8" />
+<img width="1320" height="686" alt="Screenshot 2026-09-19 163627" src="https://github.com/user-attachments/assets/dcfaeae8-698d-40a1-832c-9e43a9a0cb36" />
+<img width="1327" height="710" alt="Screenshot 2026-09-19 163643" src="https://github.com/user-attachments/assets/a414e17e-be63-41b2-8c3d-a79da442a089" />
+<img width="1400" height="741" alt="Screenshot 2026-09-19 163651" src="https://github.com/user-attachments/assets/c5b7ae79-4f38-4820-b653-d4ca6da1be28" />
+Image 1:
+Chat tab showing a question ("How does the semantic cache work?") and the start of a grounded, markdown-rendered answer — real headings, bold text, and inline code references (get_cached_response, save_to_cache) instead of raw markdown syntax.
+Image 2:
+Continuation of the same answer, scrolled down — showing the two-stage cache lookup logic (exact hash match, then semantic cosine-similarity match) rendered with numbered steps and inline code chips referencing real functions like hash_query and embedder.embed_text.
+Image 3:
+Further scroll of the same answer — showing the semantic similarity threshold check and the transition into the "Storage" section, confirming the full response is long-form, structured, and grounded in actual source code rather than a short generic reply.
+If you want one single caption to use for just the best of the three (recommended, since all three are really one scrolling answer), I'd use Image 1 alone with this line:
+The Chat tab answering a real question about the codebase, with markdown rendering (headings, bold, inline code) and a live source-grounded response.
+
+<img width="1437" height="885" alt="Screenshot 2026-09-19 164102" src="https://github.com/user-attachments/assets/b6a1b864-2a8a-46a3-8893-1870202b8a12" />
+<img width="1362" height="871" alt="Screenshot 2026-09-19 164120" src="https://github.com/user-attachments/assets/081bf415-f1e7-4387-9cb4-45bd89c6a1f6" />
+<img width="1502" height="700" alt="Screenshot 2026-09-19 164135" src="https://github.com/user-attachments/assets/6456dbaf-badc-494b-90dd-42b32fae41cc" />
+
+Image 1 (best one to use as the main Dashboard screenshot):
+The redesigned Dashboard tab — a primary "hero" cost card ($0.032723) visually distinct from Total Requests and Errors, a secondary stats row (avg latency, input/output tokens, cache hit rate), and the Recent Requests table showing real questions with model tier, token counts, cost, latency, and status per request.
+Image 2:
+Recent Requests table, scrolled further — showing a mix of cache hits (0 tokens, sub-100ms latency) and real LLM calls across both model tiers, plus two genuine transient Gemini 503 errors (26960ms and 16983ms) on repeated identical questions, demonstrating the error-logging path working correctly under real upstream instability.
+Image 3:
+Further scroll of Recent Requests — showing repeated test questions ("which files import pgvector", "what exception types does the auth dependency raise") each logged with differing outcomes (success/error, cached/live) across multiple attempts, illustrating the logging system capturing every request state accurately over time.
+One real, useful thing this data reveals, worth calling out separately (not just image captions): you can literally see the retrieval gap and the 503 pattern together in this table — e.g. "how does the fix loop work" only got 1 attempt and succeeded with a "not found" answer (the retrieval gap), while "How does the semantic cache work?" shows 2 back-to-back errors before eventually succeeding (the transient 503 pattern we diagnosed earlier). This table is actually solid supporting evidence for both known issues already written into your README — you could reference "see Dashboard screenshot" from those write-ups.
+
+
+<img width="1327" height="870" alt="Screenshot 2026-09-19 165802" src="https://github.com/user-attachments/assets/9179cd51-b6b9-4e13-b355-02c815ddf41e" />
+<img width="1083" height="810" alt="Screenshot 2026-09-19 165819" src="https://github.com/user-attachments/assets/719e987b-f375-4f62-b101-ecb9f382412a" />
+<img width="1357" height="833" alt="Screenshot 2026-09-19 165836" src="https://github.com/user-attachments/assets/4a5f4b16-a5f3-4036-8595-c80ced7080cf" />
+<img width="1360" height="882" alt="Screenshot 2026-09-19 165855" src="https://github.com/user-attachments/assets/5943dfd0-3d38-4403-b097-46099a5c1d6b" />
+<img width="1343" height="871" alt="Screenshot 2026-09-19 165907" src="https://github.com/user-attachments/assets/e9c56551-d949-4f51-b687-c8bc736276b0" />
+
+Image 1 — Agent tab, post-fix summary view
+The Agent tab showing the result banner after running a fix: "Tests passing · 1 attempt(s) · file changed" in green, confirming the agent needed only one attempt to correctly resolve the bug. Above it, the intro block explains the agent's process (read file → run tests → diagnose failure → patch → re-verify, with a timestamped backup before any edit), and the form shows the exact input used: app/services/buggy_math.py as the target file and tests as the test directory. Below the banner, the Diff section begins, starting with the add_numbers function shown unchanged.
+Image 2 — Diff view, unchanged functions
+A closer view of the Diff output, scrolled to show add_numbers, average, and the start of is_prime — all rendered as plain, unhighlighted code because the agent correctly determined these functions had no bugs and left them untouched. This demonstrates the fix is surgical: only the actually-broken function gets modified, not the whole file.
+Image 3 — The actual bug fix (core evidence)
+The key moment in the diff: the end of is_prime (unchanged, confirmed correct) followed by the factorial function, where a single line is shown with a red "removed" marker (for i in range(1, n):) directly above a green "added" line (for i in range(1, n + 1):). This is the exact off-by-one bug the agent found and fixed — the original loop stopped one iteration short, so factorial(5) was returning 24 instead of the correct 120. Below the diff, the Test Output panel begins, showing pytest collecting 11 test items across the full suite (not just the one broken test).
+Image 4 — Full test suite passing after the fix
+The same factorial diff shown again for context, followed by the full Test Output log: pytest running all 11 tests across both test_buggy_math.py and test_pricing.py, with test_add_numbers, test_average, test_average_empty, test_is_prime_true, and test_is_prime_false all showing PASSED with their progress percentages. This confirms the fix was verified against the entire test suite, not just the single test that originally caught the bug — proving no regressions were introduced elsewhere.
 
 - Phase 11 -- Custom Model (fine-tuning on usage logs) -- deliberately deferred: not enough real usage volume yet to fine-tune on meaningfully, per project notes.
 
